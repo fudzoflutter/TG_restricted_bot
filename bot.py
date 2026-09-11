@@ -22,6 +22,7 @@ from aiogram.types import (
 
 import config
 import database as db
+import isolation
 from locales import t
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - [%(levelname)s] - %(message)s")
@@ -32,6 +33,8 @@ dp = Dispatcher()
 SAVE_TRIGGERS = {"!", ".", "+", "save", "сохранить", "сейв", "/save", "s", "с"}
 BOT_USERNAME = ""
 
+# Button colors: https://core.telegram.org/bots/api#keyboardbutton
+# https://docs.aiogram.dev/en/v3.28.2/api/enums/button_style.html
 try:
     from aiogram.enums import ButtonStyle
     STYLE_SUCCESS = ButtonStyle.SUCCESS
@@ -42,16 +45,19 @@ except Exception:
     STYLE_PRIMARY = "primary"
     STYLE_DANGER = "danger"
 
-# Official custom-emoji IDs (Bot API HTML <tg-emoji>). Animated if bot owner has Premium.
+# Custom emoji (HTML <tg-emoji> + button icon_custom_emoji_id).
+# https://core.telegram.org/bots/api#html-style
 E_WAVE = "5312241539987038474"
 E_SPY = "5924490652745212033"
 E_SHIELD = "5924649605189869607"
 E_FIRE = "5931801052155222589"
-E_CHECK = "5274232449511988793"
+E_CHECK = "5368324170671202286"
 E_GEAR = "5276246852666758580"
 E_CHART = "5377312262123803976"
 E_LANG = "5413704112220949842"
 E_SAVE = "5271600761883117622"
+
+_use_button_icons = True
 
 
 def ae(emoji_id: str, fallback: str) -> str:
@@ -90,8 +96,8 @@ def kb(
 ) -> KeyboardButton:
     kwargs: Dict[str, Any] = {"text": text}
     if style:
-        kwargs["style"] = style
-    if icon:
+        kwargs["style"] = str(style)
+    if icon and _use_button_icons:
         kwargs["icon_custom_emoji_id"] = icon
     return KeyboardButton(**kwargs)
 
@@ -189,23 +195,38 @@ async def send_to_owner(owner_id: int, business_chat: Any, send_func, **kwargs):
         return await send_func(chat_id=owner_id, message_thread_id=None, **kwargs)
 
 
-async def dispatch_media_message(owner_id: int, chat: Any, content_type: str, file_id: str, caption: Optional[str] = None):
+async def dispatch_media_message(
+    owner_id: int,
+    chat: Any,
+    content_type: str,
+    file_id: Optional[str],
+    caption: Optional[str] = None,
+    local_path: Optional[str] = None,
+):
+    media: Any = None
+    path = isolation.resolve_owner_file(owner_id, local_path)
+    if path:
+        media = FSInputFile(path)
+    elif file_id:
+        media = file_id
+    else:
+        return None
     if content_type in ("photo", ContentType.PHOTO):
-        return await send_to_owner(owner_id, chat, bot.send_photo, photo=file_id, caption=caption)
+        return await send_to_owner(owner_id, chat, bot.send_photo, photo=media, caption=caption)
     if content_type in ("video", ContentType.VIDEO):
-        return await send_to_owner(owner_id, chat, bot.send_video, video=file_id, caption=caption)
+        return await send_to_owner(owner_id, chat, bot.send_video, video=media, caption=caption)
     if content_type in ("voice", ContentType.VOICE):
-        return await send_to_owner(owner_id, chat, bot.send_voice, voice=file_id, caption=caption)
+        return await send_to_owner(owner_id, chat, bot.send_voice, voice=media, caption=caption)
     if content_type in ("video_note", ContentType.VIDEO_NOTE):
-        return await send_to_owner(owner_id, chat, bot.send_video_note, video_note=file_id)
+        return await send_to_owner(owner_id, chat, bot.send_video_note, video_note=media)
     if content_type in ("audio", ContentType.AUDIO):
-        return await send_to_owner(owner_id, chat, bot.send_audio, audio=file_id, caption=caption)
+        return await send_to_owner(owner_id, chat, bot.send_audio, audio=media, caption=caption)
     if content_type in ("document", ContentType.DOCUMENT):
-        return await send_to_owner(owner_id, chat, bot.send_document, document=file_id, caption=caption)
+        return await send_to_owner(owner_id, chat, bot.send_document, document=media, caption=caption)
     if content_type in ("animation", ContentType.ANIMATION):
-        return await send_to_owner(owner_id, chat, bot.send_animation, animation=file_id, caption=caption)
+        return await send_to_owner(owner_id, chat, bot.send_animation, animation=media, caption=caption)
     if content_type in ("sticker", ContentType.STICKER):
-        return await send_to_owner(owner_id, chat, bot.send_sticker, sticker=file_id)
+        return await send_to_owner(owner_id, chat, bot.send_sticker, sticker=media)
     return None
 
 
@@ -222,8 +243,8 @@ def ib(
     if url:
         kwargs["url"] = url
     if style:
-        kwargs["style"] = style
-    if icon:
+        kwargs["style"] = str(style)
+    if icon and _use_button_icons:
         kwargs["icon_custom_emoji_id"] = icon
     return InlineKeyboardButton(**kwargs)
 
@@ -240,7 +261,7 @@ def get_settings_keyboard(st: Dict[str, Any]) -> InlineKeyboardMarkup:
             style=STYLE_SUCCESS if st["threaded_mode"] else STYLE_DANGER,
         )],
         [ib(f"{t(lang, 'btn_save_mode')}: {save_m_text}", callback_data="menu_save_mode", style=STYLE_PRIMARY, icon=E_SAVE)],
-        [ib(t(lang, "btn_lang"), callback_data="menu_lang", icon=E_LANG)],
+        [ib(t(lang, "btn_lang"), callback_data="menu_lang", style=STYLE_PRIMARY, icon=E_LANG)],
     ])
 
 
@@ -250,12 +271,19 @@ def get_header_keyboard(st: Dict[str, Any]) -> InlineKeyboardMarkup:
     def btn_txt(name, val):
         return f"{name}: {t(lang, 'status_on') if val else t(lang, 'status_off')}"
 
+    def styled(name, val, data):
+        return ib(
+            btn_txt(name, val),
+            callback_data=data,
+            style=STYLE_SUCCESS if val else STYLE_DANGER,
+        )
+
     return InlineKeyboardMarkup(inline_keyboard=[
-        [ib(btn_txt(t(lang, "btn_show_fname"), st["show_first_name"]), callback_data="toggle_hdr_first_name")],
-        [ib(btn_txt(t(lang, "btn_show_lname"), st["show_last_name"]), callback_data="toggle_hdr_last_name")],
-        [ib(btn_txt(t(lang, "btn_show_uname"), st["show_username"]), callback_data="toggle_hdr_username")],
-        [ib(btn_txt(t(lang, "btn_show_id"), st["show_user_id"]), callback_data="toggle_hdr_user_id")],
-        [ib(t(lang, "btn_back"), callback_data="menu_main")],
+        [styled(t(lang, "btn_show_fname"), st["show_first_name"], "toggle_hdr_first_name")],
+        [styled(t(lang, "btn_show_lname"), st["show_last_name"], "toggle_hdr_last_name")],
+        [styled(t(lang, "btn_show_uname"), st["show_username"], "toggle_hdr_username")],
+        [styled(t(lang, "btn_show_id"), st["show_user_id"], "toggle_hdr_user_id")],
+        [ib(t(lang, "btn_back"), callback_data="menu_main", style=STYLE_PRIMARY)],
     ])
 
 
@@ -273,24 +301,27 @@ def get_save_mode_keyboard(st: Dict[str, Any]) -> InlineKeyboardMarkup:
             callback_data="set_smode_all",
             style=STYLE_SUCCESS if cur == "all" else STYLE_PRIMARY,
         )],
-        [ib(t(lang, "btn_back"), callback_data="menu_main")],
+        [ib(t(lang, "btn_back"), callback_data="menu_main", style=STYLE_PRIMARY)],
     ])
 
 
 def get_lang_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [ib("🇷🇺 Русский", callback_data="set_lang_ru")],
-        [ib("🇬🇧 English", callback_data="set_lang_en")],
-        [ib("🇺🇿 O'zbekcha", callback_data="set_lang_uz")],
-        [ib("⬅️ Back / Назад", callback_data="menu_main")],
+        [ib("🇷🇺 Русский", callback_data="set_lang_ru", style=STYLE_PRIMARY)],
+        [ib("🇬🇧 English", callback_data="set_lang_en", style=STYLE_PRIMARY)],
+        [ib("🇺🇿 O'zbekcha", callback_data="set_lang_uz", style=STYLE_PRIMARY)],
+        [ib("⬅️ Back / Назад", callback_data="menu_main", style=STYLE_DANGER)],
     ])
 
 
-def connect_keyboard() -> InlineKeyboardMarkup:
-    # tg://settings/edit → profil tahrirlash (Chatbots shu yerda).
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [ib("Connect", url="tg://settings/edit", style=STYLE_SUCCESS, icon=E_CHECK)],
-    ])
+def connect_keyboard(prefer_https: bool = False) -> InlineKeyboardMarkup:
+    rows = []
+    profile = isolation.connect_profile_url() if not prefer_https else "https://t.me/settings"
+    rows.append([ib("Connect", url=profile, style=STYLE_SUCCESS, icon=E_CHECK)])
+    biz = isolation.connect_business_url(BOT_USERNAME)
+    if biz:
+        rows.append([ib("Chatbots", url=biz, style=STYLE_PRIMARY, icon=E_GEAR)])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def how_it_works_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
@@ -301,7 +332,7 @@ def how_it_works_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
     else:
         back = "⬅️ Назад"
     return InlineKeyboardMarkup(inline_keyboard=[
-        [ib(back, callback_data="back_start")],
+        [ib(back, callback_data="back_start", style=STYLE_PRIMARY)],
     ])
 
 
@@ -313,8 +344,8 @@ def welcome_caption(lang: str) -> str:
             f"{ae(E_SPY, '🕵️')} I catch deleted and edited messages\n"
             "and save photos, videos, voice, video notes and view-once media.\n\n"
             f"{ae(E_SHIELD, '🔒')} Each user only sees their own chats.\n\n"
-            "Connect:\n"
-            "1\ufe0f\u20e3 Tap Connect (opens Profile → Edit)\n"
+            "Connect (no Premium, no API hash):\n"
+            "1\ufe0f\u20e3 Tap Connect → Profile Edit (`tg://settings/edit`)\n"
             "2\ufe0f\u20e3 Chatbots / Chat Automation\n"
             f"3\ufe0f\u20e3 Add {bot_mention}\n\n"
             f"{ae(E_FIRE, '🛠')} Tools are on the keyboard below."
@@ -325,7 +356,7 @@ def welcome_caption(lang: str) -> str:
             f"{ae(E_SPY, '🕵️')} O'chirilgan va tahrirlangan xabarlarni ushlayman,\n"
             "rasm, video, ovoz, video-xabar va bir martalik medialarni saqlayman.\n\n"
             f"{ae(E_SHIELD, '🔒')} Har bir foydalanuvchi faqat o'z chatlarini ko'radi.\n\n"
-            "Ulash:\n"
+            "Ulash (Premium shart emas, API hash yo'q):\n"
             "1\ufe0f\u20e3 Connect — profil tahrirlash (Edit)\n"
             "2\ufe0f\u20e3 Chatbots / Chat Automation\n"
             f"3\ufe0f\u20e3 {bot_mention} ni qo'shing\n\n"
@@ -336,7 +367,7 @@ def welcome_caption(lang: str) -> str:
         f"{ae(E_SPY, '🕵️')} Ловлю удалённые и отредактированные сообщения,\n"
         "фото, видео, голосовые, кружки и одноразовые медиа.\n\n"
         f"{ae(E_SHIELD, '🔒')} Каждый пользователь видит только свои чаты.\n\n"
-        "Подключение:\n"
+        "Подключение (Premium не нужен, API hash не нужен):\n"
         "1\ufe0f\u20e3 Connect — редактирование профиля (Edit)\n"
         "2\ufe0f\u20e3 Chatbots / Chat Automation\n"
         f"3\ufe0f\u20e3 Добавьте {bot_mention}\n\n"
@@ -344,20 +375,86 @@ def welcome_caption(lang: str) -> str:
     )
 
 
-async def send_welcome(bot_instance, chat_id: int, lang: str):
-    photo_path = FSInputFile("mooodypic.jpg")
-    markup = connect_keyboard()
-    try:
-        return await bot_instance.send_photo(
-            chat_id, photo=photo_path, caption=welcome_caption(lang), reply_markup=markup,
-        )
-    except TelegramBadRequest:
-        if BOT_USERNAME:
-            markup = InlineKeyboardMarkup(inline_keyboard=[
-                [ib("Connect", url=f"https://t.me/{BOT_USERNAME}?startattach", style=STYLE_SUCCESS, icon=E_CHECK)],
+def _strip_markup_icons(markup: Any) -> Any:
+    if isinstance(markup, ReplyKeyboardMarkup):
+        rows = []
+        for row in markup.keyboard:
+            rows.append([
+                KeyboardButton(
+                    text=btn.text,
+                    **({"style": btn.style} if getattr(btn, "style", None) else {}),
+                )
+                for btn in row
             ])
-        return await bot_instance.send_photo(
-            chat_id, photo=photo_path, caption=welcome_caption(lang), reply_markup=markup,
+        return ReplyKeyboardMarkup(
+            keyboard=rows,
+            resize_keyboard=markup.resize_keyboard,
+            is_persistent=markup.is_persistent,
+        )
+    if isinstance(markup, InlineKeyboardMarkup):
+        rows = []
+        for row in markup.inline_keyboard:
+            new_row = []
+            for btn in row:
+                kwargs: Dict[str, Any] = {"text": btn.text}
+                if btn.callback_data:
+                    kwargs["callback_data"] = btn.callback_data
+                if btn.url:
+                    kwargs["url"] = btn.url
+                if getattr(btn, "style", None):
+                    kwargs["style"] = btn.style
+                new_row.append(InlineKeyboardButton(**kwargs))
+            rows.append(new_row)
+        return InlineKeyboardMarkup(inline_keyboard=rows)
+    return markup
+
+
+async def send_with_markup_fallback(send_func, **kwargs):
+    global _use_button_icons
+    try:
+        return await send_func(**kwargs)
+    except TelegramBadRequest as e:
+        err = str(e).lower()
+        if any(tok in err for tok in ("url", "button_url")):
+            kwargs["reply_markup"] = connect_keyboard(prefer_https=True)
+            try:
+                return await send_func(**kwargs)
+            except TelegramBadRequest:
+                pass
+        if any(tok in err for tok in ("emoji", "icon", "custom_emoji")):
+            _use_button_icons = False
+            if kwargs.get("reply_markup") is not None:
+                kwargs["reply_markup"] = _strip_markup_icons(kwargs["reply_markup"])
+            if kwargs.get("caption"):
+                kwargs["caption"] = isolation.strip_tg_emoji(kwargs["caption"])
+            if kwargs.get("text"):
+                kwargs["text"] = isolation.strip_tg_emoji(kwargs["text"])
+            try:
+                return await send_func(**kwargs)
+            except TelegramBadRequest:
+                kwargs.pop("reply_markup", None)
+                return await send_func(**kwargs)
+        raise
+
+
+async def send_welcome(bot_instance, chat_id: int, lang: str):
+    markup = connect_keyboard()
+    caption = welcome_caption(lang)
+    photo_path = "mooodypic.jpg"
+    try:
+        return await send_with_markup_fallback(
+            bot_instance.send_photo,
+            chat_id=chat_id,
+            photo=FSInputFile(photo_path),
+            caption=caption,
+            reply_markup=markup,
+        )
+    except (TelegramBadRequest, FileNotFoundError, OSError):
+        return await send_with_markup_fallback(
+            bot_instance.send_message,
+            chat_id=chat_id,
+            text=caption,
+            reply_markup=connect_keyboard(),
         )
 
 
@@ -365,8 +462,8 @@ def how_it_works_text(lang: str) -> str:
     if lang == "en":
         return (
             f"{ae(E_SPY, '😎')} <b>How does the bot work?</b>\n\n"
-            "1. Open <b>Settings → Edit profile</b> (Connect button)\n"
-            "2. Chatbots / Chat Automation — add this bot\n"
+            "1. Open <b>Settings → Edit profile</b> (Connect → tg://settings/edit)\n"
+            "2. Chatbots / Chat Automation — add this bot (works without Premium)\n"
             "3. Deleted/edited messages and media are sent only to you\n"
             "4. View-once photos/videos are cached immediately\n\n"
             "⚡️ Real-time, even offline\n"
@@ -376,7 +473,7 @@ def how_it_works_text(lang: str) -> str:
         return (
             f"{ae(E_SPY, '😎')} <b>Bot qanday ishlaydi?</b>\n\n"
             "1. <b>Sozlamalar → Profilni tahrirlash</b> (Connect)\n"
-            "2. Chatbots / Chat Automation — botni qo'shing\n"
+            "2. Chatbots / Chat Automation — botni qo'shing (Premium shart emas)\n"
             "3. O'chirilgan/tahrirlangan xabarlar faqat sizga ketadi\n"
             "4. Bir martalik media darhol keshga tushadi\n\n"
             "⚡️ Real vaqt, oflayn ham\n"
@@ -385,7 +482,7 @@ def how_it_works_text(lang: str) -> str:
     return (
         f"{ae(E_SPY, '😎')} <b>Как работает бот?</b>\n\n"
         "1. <b>Настройки → Редактировать профиль</b> (Connect)\n"
-        "2. Chatbots / Chat Automation — добавьте бота\n"
+        "2. Chatbots / Chat Automation — добавьте бота (Premium не требуется)\n"
         "3. Удалённые/изменённые сообщения приходят только вам\n"
         "4. Одноразовые медиа сразу кэшируются\n\n"
         "⚡️ В реальном времени, даже офлайн\n"
@@ -399,26 +496,36 @@ async def cmd_start(msg: Message):
     lang = st["language"]
 
     if await db.has_connection(msg.from_user.id):
-        text = (
-            "✅ <b>Bot is already connected and working!</b>\n"
-            "I'm catching deleted/edited messages in your chats."
-            if lang == "en" else
-            "✅ <b>Bot allaqachon ulangan va ishlayapti!</b>\n"
-            "Men sizning chatlaringizdagi o'chirilgan/tahrirlangan xabarlarni ushlayapman."
-            if lang == "uz" else
-            "✅ <b>Бот уже подключен и работает!</b>\n"
-            "Я перехватываю удалённые/отредактированные сообщения в ваших чатах."
+        if lang == "en":
+            text = (
+                f"{ae(E_CHECK, '✅')} <b>Bot is already connected and working!</b>\n"
+                "I'm catching deleted/edited messages in your chats."
+            )
+        elif lang == "uz":
+            text = (
+                f"{ae(E_CHECK, '✅')} <b>Bot allaqachon ulangan va ishlayapti!</b>\n"
+                "Men sizning chatlaringizdagi o'chirilgan/tahrirlangan xabarlarni ushlayapman."
+            )
+        else:
+            text = (
+                f"{ae(E_CHECK, '✅')} <b>Бот уже подключен и работает!</b>\n"
+                "Я перехватываю удалённые/отредактированные сообщения в ваших чатах."
+            )
+        await send_with_markup_fallback(
+            msg.answer, text=text, reply_markup=get_main_menu_keyboard(lang),
         )
-        await msg.answer(text, reply_markup=get_main_menu_keyboard(lang))
         return
 
     await send_welcome(bot, msg.chat.id, lang)
-    tools_txt = (
-        "🛠 The tools below are always available." if lang == "en"
-        else "🛠 Quyidagi qurollar doim mavjud." if lang == "uz"
-        else "🛠 Инструменты ниже всегда доступны."
+    if lang == "en":
+        tools_txt = f"{ae(E_GEAR, '🛠')} The tools below are always available."
+    elif lang == "uz":
+        tools_txt = f"{ae(E_GEAR, '🛠')} Quyidagi qurollar doim mavjud."
+    else:
+        tools_txt = f"{ae(E_GEAR, '🛠')} Инструменты ниже всегда доступны."
+    await send_with_markup_fallback(
+        msg.answer, text=tools_txt, reply_markup=get_main_menu_keyboard(lang),
     )
-    await msg.answer(tools_txt, reply_markup=get_main_menu_keyboard(lang))
 
 
 def _parse_uid(text: str) -> Optional[int]:
@@ -473,16 +580,23 @@ async def cmd_allowed(msg: Message):
 @dp.message(Command("settings"))
 async def cmd_settings(msg: Message):
     st = await db.get_user_settings(msg.from_user.id)
-    await msg.answer(t(st["language"], "settings_title"), reply_markup=get_settings_keyboard(st))
+    await send_with_markup_fallback(
+        msg.answer, text=t(st["language"], "settings_title"), reply_markup=get_settings_keyboard(st),
+    )
 
 
 @dp.message(Command("menu"))
 async def cmd_menu(msg: Message):
     st = await db.get_user_settings(msg.from_user.id)
     lang = st["language"]
-    await msg.answer(
-        "🛠 Menu" if lang == "en" else "🛠 Menyu",
-        reply_markup=get_main_menu_keyboard(lang),
+    if lang == "en":
+        label = f"{ae(E_GEAR, '🛠')} Menu"
+    elif lang == "uz":
+        label = f"{ae(E_GEAR, '🛠')} Menyu"
+    else:
+        label = f"{ae(E_GEAR, '🛠')} Меню"
+    await send_with_markup_fallback(
+        msg.answer, text=label, reply_markup=get_main_menu_keyboard(lang),
     )
 
 
@@ -499,27 +613,34 @@ async def btn_connect(msg: Message):
     st = await db.get_user_settings(msg.from_user.id)
     lang = st["language"]
     mention = f"@{BOT_USERNAME}" if BOT_USERNAME else "bot"
-    text = (
-        "🟢 <b>To connect:</b>\n\n"
-        "1️⃣ Tap <b>Connect</b> → Profile Edit\n"
-        f"2️⃣ Add <b>{mention}</b> in Chatbots ✅"
-        if lang == "en" else
-        "🟢 <b>Ulash:</b>\n\n"
-        "1️⃣ <b>Connect</b> — profil tahrirlash\n"
-        f"2️⃣ Chatbots da <b>{mention}</b> ni qo'shing ✅"
-        if lang == "uz" else
-        "🟢 <b>Подключение:</b>\n\n"
-        "1️⃣ <b>Connect</b> — редактирование профиля\n"
-        f"2️⃣ В Chatbots добавьте <b>{mention}</b> ✅"
-    )
-    await msg.answer(text, reply_markup=connect_keyboard())
+    if lang == "en":
+        text = (
+            f"{ae(E_CHECK, '🟢')} <b>To connect:</b>\n\n"
+            "1️⃣ Tap <b>Connect</b> → Profile Edit (no Premium / no API hash)\n"
+            f"2️⃣ Add <b>{mention}</b> in Chatbots ✅"
+        )
+    elif lang == "uz":
+        text = (
+            f"{ae(E_CHECK, '🟢')} <b>Ulash:</b>\n\n"
+            "1️⃣ <b>Connect</b> — profil tahrirlash (Premium shart emas)\n"
+            f"2️⃣ Chatbots da <b>{mention}</b> ni qo'shing ✅"
+        )
+    else:
+        text = (
+            f"{ae(E_CHECK, '🟢')} <b>Подключение:</b>\n\n"
+            "1️⃣ <b>Connect</b> — редактирование профиля (Premium не нужен)\n"
+            f"2️⃣ В Chatbots добавьте <b>{mention}</b> ✅"
+        )
+    await send_with_markup_fallback(msg.answer, text=text, reply_markup=connect_keyboard())
 
 
 @dp.message(F.text.in_(HOW_TEXTS))
 async def btn_how(msg: Message):
     st = await db.get_user_settings(msg.from_user.id)
     lang = st["language"]
-    await msg.answer(how_it_works_text(lang), reply_markup=how_it_works_keyboard(lang))
+    await send_with_markup_fallback(
+        msg.answer, text=how_it_works_text(lang), reply_markup=how_it_works_keyboard(lang),
+    )
 
 
 @dp.message(F.text.in_(STATS_TEXTS))
@@ -539,18 +660,22 @@ async def btn_stats(msg: Message):
 @dp.message(F.text.in_(SETTINGS_TEXTS))
 async def btn_settings(msg: Message):
     st = await db.get_user_settings(msg.from_user.id)
-    await msg.answer(t(st["language"], "settings_title"), reply_markup=get_settings_keyboard(st))
+    await send_with_markup_fallback(
+        msg.answer, text=t(st["language"], "settings_title"), reply_markup=get_settings_keyboard(st),
+    )
 
 
 @dp.message(F.text.in_(LANG_TEXTS))
 async def btn_lang(msg: Message):
-    await msg.answer("🌐", reply_markup=get_lang_keyboard())
+    await send_with_markup_fallback(msg.answer, text="🌐", reply_markup=get_lang_keyboard())
 
 
 @dp.message(F.text.in_(SAVE_MODE_TEXTS))
 async def btn_save_mode(msg: Message):
     st = await db.get_user_settings(msg.from_user.id)
-    await msg.answer(t(st["language"], "save_mode_title"), reply_markup=get_save_mode_keyboard(st))
+    await send_with_markup_fallback(
+        msg.answer, text=t(st["language"], "save_mode_title"), reply_markup=get_save_mode_keyboard(st),
+    )
 
 
 @dp.callback_query(F.data == "back_start")
@@ -650,7 +775,9 @@ async def on_business_connection(conn: BusinessConnection):
             pass
 
 
-async def _deliver_protected_media(owner_id: int, msg: Message, file_id: str, content_type: str):
+async def _deliver_protected_media(
+    owner_id: int, msg: Message, file_id: str, content_type: str, local_path: Optional[str] = None
+):
     st = await db.get_user_settings(owner_id)
     lang = st["language"]
     author_data = {
@@ -663,11 +790,42 @@ async def _deliver_protected_media(owner_id: int, msg: Message, file_id: str, co
     if msg.caption:
         caption += f"\n💬 <b>{t(lang, 'caption_label')}</b> {msg.caption}"
     try:
-        sent = await dispatch_media_message(owner_id, msg.chat, content_type, file_id, caption)
+        sent = await dispatch_media_message(
+            owner_id, msg.chat, content_type, file_id, caption, local_path=local_path
+        )
         if sent and content_type == "video_note":
             await sent.reply(caption)
     except Exception as e:
         logging.error(f"protected media deliver error: {e}")
+
+
+async def persist_business_media(owner_id: int, msg: Message):
+    """Download media immediately so view-once / deletes can still be recovered."""
+    content_type, file_id = db.extract_media(msg)
+    if not file_id:
+        return
+    dest = isolation.owner_media_path(owner_id, msg.chat.id, msg.message_id)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    local_path = None
+    downloadable = (
+        (msg.photo[-1] if msg.photo else None)
+        or msg.video
+        or msg.voice
+        or msg.video_note
+        or msg.audio
+        or msg.document
+        or msg.animation
+        or msg.sticker
+        or file_id
+    )
+    try:
+        await bot.download(downloadable, destination=dest)
+        local_path = str(dest)
+        await db.set_message_local_path(owner_id, msg.chat.id, msg.message_id, local_path)
+    except Exception as e:
+        logging.warning(f"media download failed owner={owner_id}: {e}")
+    if isolation.is_protected_media(msg):
+        await _deliver_protected_media(owner_id, msg, file_id, content_type, local_path=local_path)
 
 
 @dp.business_message()
@@ -677,10 +835,9 @@ async def on_business_message(msg: Message):
         return
 
     await db.cache_message(msg, owner_id)
-
-    content_type, file_id = db.extract_media(msg)
-    if file_id and getattr(msg, "has_protected_content", False):
-        asyncio.create_task(_deliver_protected_media(owner_id, msg, file_id, content_type))
+    _, file_id = db.extract_media(msg)
+    if file_id:
+        asyncio.create_task(persist_business_media(owner_id, msg))
 
     if not msg.reply_to_message:
         return
@@ -707,7 +864,9 @@ async def on_business_message(msg: Message):
     if replied.caption:
         caption += f"\n💬 <b>{t(lang, 'caption_label')}</b> {replied.caption}"
     try:
-        sent = await dispatch_media_message(owner_id, msg.chat, replied.content_type, rfile, caption)
+        sent = await dispatch_media_message(
+            owner_id, msg.chat, replied.content_type, rfile, caption
+        )
         if sent and replied.video_note:
             await sent.reply(caption)
     except Exception as e:
@@ -748,6 +907,9 @@ async def on_edited_business_message(msg: Message):
             logging.error(f"Error sending edit notification: {e}")
 
     await db.cache_message(msg, owner_id)
+    _, file_id = db.extract_media(msg)
+    if file_id:
+        asyncio.create_task(persist_business_media(owner_id, msg))
 
 
 @dp.deleted_business_messages()
@@ -767,7 +929,8 @@ async def on_business_messages_deleted(event: BusinessMessagesDeleted):
         file_id = cached["file_id"]
         text_content = cached["text_content"]
         try:
-            if content_type == "text" or not file_id:
+            has_media = bool(file_id or cached.get("local_path"))
+            if content_type == "text" or not has_media:
                 body = (
                     f"{t(lang, 'del_text_title')}\n"
                     f"{sender_hdr}\n\n"
@@ -776,7 +939,14 @@ async def on_business_messages_deleted(event: BusinessMessagesDeleted):
                 await send_to_owner(owner_id, event.chat, bot.send_message, text=body)
                 return
             caption = text_content if text_content else None
-            sent = await dispatch_media_message(owner_id, event.chat, content_type, file_id, caption)
+            sent = await dispatch_media_message(
+                owner_id,
+                event.chat,
+                content_type,
+                file_id,
+                caption,
+                local_path=cached.get("local_path"),
+            )
             info = f"{t(lang, 'del_media_title')}\n{sender_hdr}"
             if sent:
                 await sent.reply(info)
@@ -792,6 +962,7 @@ async def main():
     global BOT_USERNAME
     if not config.ADMIN_ID:
         logging.error("MY_USER_ID is 0 — set your Telegram id in .env so the allowlist works")
+    isolation.MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
     await db.init_db()
     me = await bot.get_me()
     BOT_USERNAME = me.username or ""

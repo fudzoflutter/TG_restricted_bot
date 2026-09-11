@@ -96,3 +96,5 @@ ALTER TABLE messages ADD PRIMARY KEY (owner_id, chat_id, message_id);
 
 CREATE INDEX IF NOT EXISTS idx_messages_owner ON messages(owner_id, chat_id, message_id);
 CREATE INDEX IF NOT EXISTS idx_allowed_users ON allowed_users(user_id);
+
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS local_path TEXT;

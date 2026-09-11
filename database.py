@@ -8,6 +8,7 @@ from supabase import create_client, Client
 from aiogram.types import Message
 
 import config
+import isolation
 
 log = logging.getLogger(__name__)
 
@@ -136,6 +137,7 @@ async def deny_user(user_id: int) -> None:
         sb.table("allowed_users").delete().eq("user_id", user_id).execute()
     except Exception as e:
         log.warning(f"deny_user error: {e}")
+    await purge_owner_runtime(user_id)
 
 
 async def list_allowed() -> List[int]:
@@ -166,6 +168,21 @@ async def get_owner_by_connection(connection_id: Optional[str]) -> Optional[int]
     except Exception as e:
         log.warning(f"get_owner_by_connection error: {e}")
         return None
+
+
+async def purge_owner_runtime(user_id: int) -> None:
+    """Drop connection + cached rows for one owner so leftover data cannot leak."""
+    sb = get_supabase()
+    for table, col in (
+        ("connections", "user_id"),
+        ("messages", "owner_id"),
+        ("user_topics", "owner_id"),
+    ):
+        try:
+            sb.table(table).delete().eq(col, user_id).execute()
+        except Exception as e:
+            log.warning(f"purge {table} error: {e}")
+    isolation.purge_owner_files(user_id)
 
 
 async def has_connection(user_id: int) -> bool:
@@ -230,6 +247,16 @@ async def cache_message(msg: Message, owner_id: int):
         ).execute()
     except Exception as e:
         log.warning(f"cache_message error: {e}")
+
+
+async def set_message_local_path(owner_id: int, chat_id: int, message_id: int, local_path: str) -> None:
+    sb = get_supabase()
+    try:
+        sb.table("messages").update({"local_path": local_path}).eq("owner_id", owner_id).eq(
+            "chat_id", chat_id
+        ).eq("message_id", message_id).execute()
+    except Exception as e:
+        log.warning(f"set_message_local_path error: {e}")
 
 
 async def get_cached_message(owner_id: int, chat_id: int, message_id: int) -> Optional[Dict[str, Any]]:
