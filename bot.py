@@ -50,6 +50,27 @@ except Exception:
 
 # Custom emoji (HTML <tg-emoji> + button icon_custom_emoji_id).
 # https://core.telegram.org/bots/api#html-style
+# ╔════════════════════════════════════════════════════════════════╗
+# ║        ⚙️  CUSTOMIZATION — EDIT YOUR BOT'S LOOK HERE            ║
+# ╚════════════════════════════════════════════════════════════════╝
+
+# --- [1] WELCOME PHOTO -------------------------------------------------
+# Path to a local image file, or a direct https:// URL, or "" for no photo.
+WELCOME_PHOTO = "mooodypic.jpg"
+
+# --- [2] BUTTON COLORS ---------------------------------------------------
+# Allowed values: "primary" (blue), "success" (green), "danger" (red).
+# Docs: https://core.telegram.org/bots/api#keyboardbutton
+COLOR_CONNECT   = "success"   # green "Connect" button under /start
+COLOR_SECONDARY = "primary"   # blue "Chatbots" + "How it works" buttons
+COLOR_MENU      = "primary"   # reply-keyboard menu buttons
+
+# --- [3] PREMIUM FEATURES (work only if the bot OWNER has Telegram Premium)
+# True → premium emoji inside message texts (<tg-emoji>).
+_USE_TEXT_CUSTOM_EMOJI = False
+# True → premium emoji icons ON buttons (icon_custom_emoji_id).
+_USE_BUTTON_ICONS = False
+# Premium emoji IDs used when the flags above are True:
 E_WAVE = "5312241539987038474"
 E_SPY = "5924490652745212033"
 E_SHIELD = "5924649605189869607"
@@ -59,17 +80,7 @@ E_GEAR = "5276246852666758580"
 E_CHART = "5377312262123803976"
 E_LANG = "5413704112220949842"
 E_SAVE = "5271600761883117622"
-
-# Button icon_custom_emoji_id needs the bot OWNER to have Telegram Premium
-# (same as <tg-emoji> in texts). Keep False unless the owner account is Premium.
-_use_button_icons = False
-
-
-# Telegram currently rejects <tg-emoji> entities sent by this bot with
-# "Bad Request: DOCUMENT_INVALID" (even for plain text messages), so custom
-# emoji in texts/captions are disabled and the identical plain emoji is used.
-# Flip to True to re-enable if Telegram starts accepting them again.
-_USE_TEXT_CUSTOM_EMOJI = False
+# ╚═════════════════════════ END OF CUSTOMIZATION ═════════════════════════╝
 
 
 def ae(emoji_id: str, fallback: str) -> str:
@@ -111,7 +122,7 @@ def kb(
     kwargs: Dict[str, Any] = {"text": text}
     if style:
         kwargs["style"] = style
-    if icon and _use_button_icons:
+    if icon and _USE_BUTTON_ICONS:
         kwargs["icon_custom_emoji_id"] = icon
     return KeyboardButton(**kwargs)
 
@@ -130,7 +141,7 @@ def ib(
         kwargs["url"] = url
     if style:
         kwargs["style"] = style
-    if icon and _use_button_icons:
+    if icon and _USE_BUTTON_ICONS:
         kwargs["icon_custom_emoji_id"] = icon
     return InlineKeyboardButton(**kwargs)
 
@@ -150,10 +161,19 @@ def get_main_menu_keyboard(lang: str = "ru") -> ReplyKeyboardMarkup:
     """Zenly-style two-button menu (Statistics / How it works)."""
     lb = _menu_labels(lang)
     rows = [
-        [kb(lb["stats"], STYLE_PRIMARY, E_CHART)],
-        [kb(lb["how"], STYLE_PRIMARY, E_SPY)],
+        [kb(lb["stats"], COLOR_MENU, E_CHART)],
+        [kb(lb["how"], COLOR_MENU, E_SPY)],
     ]
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=True)
+
+
+def stats_contact_keyboard(lang: str) -> ReplyKeyboardMarkup:
+    """Keyboard with a button that opens Telegram's contact picker (like Zenly)."""
+    rows = [
+        [KeyboardButton(text=t(lang, "stats_pick"), request_contact=True)],
+        [kb(t(lang, "btn_back_menu"), COLOR_MENU)],
+    ]
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=False)
 
 
 def format_sender_header(cached: Any, settings: Dict[str, Any], lang: str) -> str:
@@ -340,12 +360,12 @@ def connect_keyboard(
 ) -> InlineKeyboardMarkup:
     rows = []
     profile = isolation.connect_profile_url() if not prefer_https else "https://t.me/settings"
-    rows.append([ib(_menu_labels(lang)["connect"], url=profile, style=STYLE_SUCCESS, icon=E_CHECK)])
+    rows.append([ib(_menu_labels(lang)["connect"], url=profile, style=COLOR_CONNECT, icon=E_CHECK)])
     biz = isolation.connect_business_url(BOT_USERNAME)
     if biz:
-        rows.append([ib("Chatbots", url=biz, style=STYLE_PRIMARY, icon=E_GEAR)])
+        rows.append([ib("Chatbots", url=biz, style=COLOR_SECONDARY, icon=E_GEAR)])
     if with_how:
-        rows.append([ib(_menu_labels(lang)["how"], callback_data="how_it_works", style=STYLE_PRIMARY, icon=E_SPY)])
+        rows.append([ib(_menu_labels(lang)["how"], callback_data="how_it_works", style=COLOR_SECONDARY, icon=E_SPY)])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -428,7 +448,6 @@ def _strip_markup_icons(markup: Any) -> Any:
 
 
 async def send_with_markup_fallback(send_func, **kwargs):
-    global _use_button_icons
     try:
         return await send_func(**kwargs)
     except TelegramBadRequest as e:
@@ -463,7 +482,6 @@ async def send_with_markup_fallback(send_func, **kwargs):
                     pass
             raise
         if any(tok in err for tok in ("emoji", "icon", "custom_emoji")):
-            _use_button_icons = False
             if kwargs.get("reply_markup") is not None:
                 kwargs["reply_markup"] = _strip_markup_icons(kwargs["reply_markup"])
             if kwargs.get("caption"):
@@ -481,13 +499,18 @@ async def send_with_markup_fallback(send_func, **kwargs):
 async def send_welcome(bot_instance, chat_id: int, lang: str):
     markup = connect_keyboard(with_how=True, lang=lang)
     caption = welcome_caption(lang)
-    photo_path = "mooodypic.jpg"
-    if os.path.isfile(photo_path):
+    photo: Any = None
+    if WELCOME_PHOTO:
+        if WELCOME_PHOTO.startswith("http"):
+            photo = WELCOME_PHOTO
+        elif os.path.isfile(WELCOME_PHOTO):
+            photo = FSInputFile(WELCOME_PHOTO)
+    if photo is not None:
         try:
             return await send_with_markup_fallback(
                 bot_instance.send_photo,
                 chat_id=chat_id,
-                photo=FSInputFile(photo_path),
+                photo=photo,
                 caption=caption,
                 reply_markup=markup,
             )
@@ -631,15 +654,8 @@ async def cmd_settings(msg: Message):
 @dp.message(Command("menu"))
 async def cmd_menu(msg: Message):
     st = await db.get_user_settings(msg.from_user.id)
-    lang = st["language"]
-    if lang == "en":
-        label = f"{ae(E_GEAR, '🛠')} Menu"
-    elif lang == "uz":
-        label = f"{ae(E_GEAR, '🛠')} Menyu"
-    else:
-        label = f"{ae(E_GEAR, '🛠')} Меню"
     await send_with_markup_fallback(
-        msg.answer, text=label, reply_markup=get_main_menu_keyboard(lang),
+        msg.answer, text=t(st["language"], "menu_title"), reply_markup=get_main_menu_keyboard(st["language"]),
     )
 
 
@@ -689,7 +705,22 @@ async def btn_how(msg: Message):
 @dp.message(F.text.in_(STATS_TEXTS))
 async def btn_stats(msg: Message):
     st = await db.get_user_settings(msg.from_user.id)
-    await msg.answer(t(st["language"], "stats_choose"))
+    await send_with_markup_fallback(
+        msg.answer,
+        text=t(st["language"], "stats_choose"),
+        reply_markup=stats_contact_keyboard(st["language"]),
+    )
+
+
+BACK_MENU_TEXTS = {"⬅️ Menu", "⬅️ Menyu", "⬅️ Меню"}
+
+
+@dp.message(F.text.in_(BACK_MENU_TEXTS))
+async def btn_back_menu(msg: Message):
+    st = await db.get_user_settings(msg.from_user.id)
+    await send_with_markup_fallback(
+        msg.answer, text=t(st["language"], "menu_title"), reply_markup=get_main_menu_keyboard(st["language"]),
+    )
 
 
 _STATS_ORDER = [
@@ -737,7 +768,9 @@ async def on_contact_shared(msg: Message):
         + "\n".join(lines)
         + f"\n📦 {t(lang, 'stats_total')}: {total}</blockquote>"
     )
-    await send_with_markup_fallback(msg.answer, text=text)
+    await send_with_markup_fallback(
+        msg.answer, text=text, reply_markup=get_main_menu_keyboard(lang),
+    )
 
 
 @dp.message(F.text.in_(SETTINGS_TEXTS))
