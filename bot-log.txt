@@ -1,0 +1,295 @@
+2026-09-12T05:23:08.141417852Z [inf]  Starting Container
+2026-09-12T05:23:09.867450885Z [err]  2026-09-12 05:23:09,537 - [INFO] - HTTP Request: GET https://hnshcrtuksiluuquvntj.supabase.co/rest/v1/user_settings?select=user_id&limit=1 "HTTP/2 200 OK"
+2026-09-12T05:23:09.867454795Z [err]  2026-09-12 05:23:09,539 - [INFO] - ✅ Supabase connection OK
+2026-09-12T05:23:09.867458555Z [err]  2026-09-12 05:23:09,691 - [INFO] - HTTP Request: POST https://hnshcrtuksiluuquvntj.supabase.co/rest/v1/allowed_users "HTTP/2 200 OK"
+2026-09-12T05:23:10.120580739Z [err]  2026-09-12 05:23:10,119 - [INFO] - healthcheck listening on 0.0.0.0:8080
+2026-09-12T05:23:10.265722129Z [err]  2026-09-12 05:23:10,262 - [INFO] - Start polling
+2026-09-12T05:23:10.434423246Z [err]  2026-09-12 05:23:10,403 - [INFO] - Run polling for bot @mooodyspybot id=8839105396 - 'MooodySpy ❗️'
+2026-09-12T05:23:30.470701830Z [err]  2026-09-12 05:23:29,129 - [INFO] - HTTP Request: GET https://hnshcrtuksiluuquvntj.supabase.co/rest/v1/user_settings?select=%2A&user_id=eq.5794972204&limit=1 "HTTP/2 200 OK"
+2026-09-12T05:23:30.470713830Z [err]  2026-09-12 05:23:29,265 - [INFO] - HTTP Request: GET https://hnshcrtuksiluuquvntj.supabase.co/rest/v1/connections?select=connection_id&user_id=eq.5794972204&limit=1 "HTTP/2 200 OK"
+2026-09-12T05:23:30.529912958Z [err]  2026-09-12 05:23:30,513 - [INFO] - HTTP Request: GET https://hnshcrtuksiluuquvntj.supabase.co/rest/v1/user_settings?select=%2A&user_id=eq.5794972204&limit=1 "HTTP/2 200 OK"
+2026-09-12T05:23:30.676493791Z [err]      return await self(call, request_timeout=request_timeout)
+2026-09-12T05:23:30.676502690Z [err]  2026-09-12 05:23:30,647 - [INFO] - HTTP Request: GET https://hnshcrtuksiluuquvntj.supabase.co/rest/v1/connections?select=connection_id&user_id=eq.5794972204&limit=1 "HTTP/2 200 OK"
+2026-09-12T05:23:30.676506440Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.676515450Z [err]  2026-09-12 05:23:30,649 - [INFO] - Update id=177240001 is not handled. Duration 1900 ms by bot id=8839105396
+2026-09-12T05:23:30.676515600Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 482, in __call__
+2026-09-12T05:23:30.676523660Z [err]      return await self.session(self, method, timeout=request_timeout)
+2026-09-12T05:23:30.676524480Z [err]  2026-09-12 05:23:30,649 - [ERROR] - Cause exception while process update id=177240001 by bot id=8839105396
+2026-09-12T05:23:30.676530980Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.676531040Z [err]  TelegramBadRequest: Telegram server says - Bad Request: DOCUMENT_INVALID
+2026-09-12T05:23:30.676537420Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 254, in __call__
+2026-09-12T05:23:30.676539060Z [err]  Traceback (most recent call last):
+2026-09-12T05:23:30.676543270Z [err]    File "/app/bot.py", line 440, in send_welcome
+2026-09-12T05:23:30.676546800Z [err]      return await send_with_markup_fallback(
+2026-09-12T05:23:30.676550560Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.676553890Z [err]    File "/app/bot.py", line 402, in send_with_markup_fallback
+2026-09-12T05:23:30.676557140Z [err]      return await send_func(**kwargs)
+2026-09-12T05:23:30.676561010Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.676564540Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 2924, in send_photo
+2026-09-12T05:23:30.677238755Z [err]      return cast(TelegramType, await middleware(bot, method))
+2026-09-12T05:23:30.677244555Z [err]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.677249275Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/aiohttp.py", line 185, in make_request
+2026-09-12T05:23:30.677252015Z [err]      response = await self.update.wrap_outer_middleware(
+2026-09-12T05:23:30.677256214Z [err]      response = self.check_response(
+2026-09-12T05:23:30.677262904Z [err]                 ^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.677265044Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.677268604Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 120, in check_response
+2026-09-12T05:23:30.677274544Z [err]      raise TelegramBadRequest(method=method, message=description)
+2026-09-12T05:23:30.677276584Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/error.py", line 25, in __call__
+2026-09-12T05:23:30.677280164Z [err]  aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: DOCUMENT_INVALID
+2026-09-12T05:23:30.677283114Z [err]  
+2026-09-12T05:23:30.677287094Z [err]  During handling of the above exception, another exception occurred:
+2026-09-12T05:23:30.677290214Z [err]  
+2026-09-12T05:23:30.677293244Z [err]  Traceback (most recent call last):
+2026-09-12T05:23:30.677296194Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 309, in _process_update
+2026-09-12T05:23:30.677298844Z [err]      response = await self.feed_update(bot, update, **kwargs)
+2026-09-12T05:23:30.677301664Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.677304394Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 158, in feed_update
+2026-09-12T05:23:30.678117428Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
+2026-09-12T05:23:30.678120658Z [err]      return await wrapped()
+2026-09-12T05:23:30.678123618Z [err]             ^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678127268Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 276, in _listen_update
+2026-09-12T05:23:30.678131828Z [err]      return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+2026-09-12T05:23:30.678135478Z [err]      return await handler(event, data)
+2026-09-12T05:23:30.678139668Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678143338Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678147018Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
+2026-09-12T05:23:30.678149968Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 56, in __call__
+2026-09-12T05:23:30.678154638Z [err]      return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+2026-09-12T05:23:30.678157088Z [err]      return await handler(event, data)
+2026-09-12T05:23:30.678161888Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678165308Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/fsm/middleware.py", line 42, in __call__
+2026-09-12T05:23:30.678168278Z [err]      return await handler(event, data)
+2026-09-12T05:23:30.678171218Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678174138Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
+2026-09-12T05:23:30.678177268Z [err]      return await wrapped_inner(event, kwargs)
+2026-09-12T05:23:30.678180048Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678797444Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678800214Z [err]      return await send_with_markup_fallback(
+2026-09-12T05:23:30.678808344Z [err]      return await wrapped()
+2026-09-12T05:23:30.678809094Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
+2026-09-12T05:23:30.678810684Z [err]    File "/app/bot.py", line 81, in __call__
+2026-09-12T05:23:30.678811234Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678819524Z [err]      return await self._propagate_event(
+2026-09-12T05:23:30.678819914Z [err]             ^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678824484Z [err]      return await handler(event, data)
+2026-09-12T05:23:30.678828934Z [err]    File "/app/bot.py", line 514, in cmd_start
+2026-09-12T05:23:30.678829174Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678832564Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678838784Z [err]      await send_welcome(bot, msg.chat.id, lang)
+2026-09-12T05:23:30.678838934Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/router.py", line 166, in _propagate_event
+2026-09-12T05:23:30.678839324Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
+2026-09-12T05:23:30.678847444Z [err]    File "/app/bot.py", line 448, in send_welcome
+2026-09-12T05:23:30.678847624Z [err]      response = await observer.trigger(event, **kwargs)
+2026-09-12T05:23:30.678853944Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.678857594Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
+2026-09-12T05:23:30.678861294Z [err]      return await wrapped_inner(event, kwargs)
+2026-09-12T05:23:30.678865114Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.679375340Z [err]    File "/app/bot.py", line 402, in send_with_markup_fallback
+2026-09-12T05:23:30.679378130Z [err]      return await send_func(**kwargs)
+2026-09-12T05:23:30.679380860Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.679383850Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 2854, in send_message
+2026-09-12T05:23:30.679386320Z [err]      return await self(call, request_timeout=request_timeout)
+2026-09-12T05:23:30.679389100Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.679391510Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 482, in __call__
+2026-09-12T05:23:30.679394250Z [err]      return await self.session(self, method, timeout=request_timeout)
+2026-09-12T05:23:30.679397110Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.679399690Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 254, in __call__
+2026-09-12T05:23:30.679402230Z [err]      return cast(TelegramType, await middleware(bot, method))
+2026-09-12T05:23:30.679404919Z [err]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.679407479Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/aiohttp.py", line 185, in make_request
+2026-09-12T05:23:30.679410139Z [err]      response = self.check_response(
+2026-09-12T05:23:30.679412549Z [err]                 ^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:30.679414959Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 120, in check_response
+2026-09-12T05:23:30.679418199Z [err]      raise TelegramBadRequest(method=method, message=description)
+2026-09-12T05:23:30.679420879Z [err]  aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: DOCUMENT_INVALID
+2026-09-12T05:23:31.451671913Z [err]  2026-09-12 05:23:31,390 - [INFO] - HTTP Request: GET https://hnshcrtuksiluuquvntj.supabase.co/rest/v1/user_settings?select=%2A&user_id=eq.5794972204&limit=1 "HTTP/2 200 OK"
+2026-09-12T05:23:31.526787331Z [err]  2026-09-12 05:23:31,515 - [INFO] - HTTP Request: GET https://hnshcrtuksiluuquvntj.supabase.co/rest/v1/connections?select=connection_id&user_id=eq.5794972204&limit=1 "HTTP/2 200 OK"
+2026-09-12T05:23:32.110823762Z [err]  2026-09-12 05:23:32,101 - [INFO] - Update id=177240002 is not handled. Duration 1718 ms by bot id=8839105396
+2026-09-12T05:23:32.110834502Z [err]  2026-09-12 05:23:32,101 - [ERROR] - Cause exception while process update id=177240002 by bot id=8839105396
+2026-09-12T05:23:32.110838902Z [err]  TelegramBadRequest: Telegram server says - Bad Request: DOCUMENT_INVALID
+2026-09-12T05:23:32.110842972Z [err]  Traceback (most recent call last):
+2026-09-12T05:23:32.110846362Z [err]    File "/app/bot.py", line 440, in send_welcome
+2026-09-12T05:23:32.110850352Z [err]      return await send_with_markup_fallback(
+2026-09-12T05:23:32.110856032Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.110859672Z [err]    File "/app/bot.py", line 402, in send_with_markup_fallback
+2026-09-12T05:23:32.110863592Z [err]      return await send_func(**kwargs)
+2026-09-12T05:23:32.110867962Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.110872412Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 2924, in send_photo
+2026-09-12T05:23:32.110876182Z [err]      return await self(call, request_timeout=request_timeout)
+2026-09-12T05:23:32.110879512Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.110888301Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 482, in __call__
+2026-09-12T05:23:32.110891531Z [err]      return await self.session(self, method, timeout=request_timeout)
+2026-09-12T05:23:32.110895811Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.110899461Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 254, in __call__
+2026-09-12T05:23:32.110904411Z [err]      return cast(TelegramType, await middleware(bot, method))
+2026-09-12T05:23:32.110907441Z [err]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.111048190Z [err]      return await handler(event, data)
+2026-09-12T05:23:32.111051080Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/aiohttp.py", line 185, in make_request
+2026-09-12T05:23:32.111056040Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.111062320Z [err]      response = self.check_response(
+2026-09-12T05:23:32.111065000Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 56, in __call__
+2026-09-12T05:23:32.111069690Z [err]                 ^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.111075600Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 120, in check_response
+2026-09-12T05:23:32.111078820Z [err]  Traceback (most recent call last):
+2026-09-12T05:23:32.111081790Z [err]      raise TelegramBadRequest(method=method, message=description)
+2026-09-12T05:23:32.111088830Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 309, in _process_update
+2026-09-12T05:23:32.111091330Z [err]  aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: DOCUMENT_INVALID
+2026-09-12T05:23:32.111098410Z [err]  
+2026-09-12T05:23:32.111098900Z [err]      response = await self.feed_update(bot, update, **kwargs)
+2026-09-12T05:23:32.111104390Z [err]  During handling of the above exception, another exception occurred:
+2026-09-12T05:23:32.111106329Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.111111219Z [err]  
+2026-09-12T05:23:32.111113709Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 158, in feed_update
+2026-09-12T05:23:32.111117389Z [err]      response = await self.update.wrap_outer_middleware(
+2026-09-12T05:23:32.111121109Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.111124589Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/error.py", line 25, in __call__
+2026-09-12T05:23:32.111811775Z [err]      return await handler(event, data)
+2026-09-12T05:23:32.111814625Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.111816985Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/fsm/middleware.py", line 42, in __call__
+2026-09-12T05:23:32.111819615Z [err]      return await handler(event, data)
+2026-09-12T05:23:32.111822155Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.111825005Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
+2026-09-12T05:23:32.111827315Z [err]      return await wrapped_inner(event, kwargs)
+2026-09-12T05:23:32.111829775Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.111832885Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
+2026-09-12T05:23:32.111835545Z [err]      return await wrapped()
+2026-09-12T05:23:32.111839945Z [err]             ^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.111842435Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 276, in _listen_update
+2026-09-12T05:23:32.111844775Z [err]      return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+2026-09-12T05:23:32.111951334Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.111954994Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
+2026-09-12T05:23:32.111958214Z [err]      return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+2026-09-12T05:23:32.111960924Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.111963714Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
+2026-09-12T05:23:32.112675009Z [err]      return await self._propagate_event(
+2026-09-12T05:23:32.112677669Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.112679969Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/router.py", line 166, in _propagate_event
+2026-09-12T05:23:32.112682629Z [err]      response = await observer.trigger(event, **kwargs)
+2026-09-12T05:23:32.112685399Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.112688309Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
+2026-09-12T05:23:32.112690969Z [err]      return await wrapped_inner(event, kwargs)
+2026-09-12T05:23:32.112693369Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.112695879Z [err]    File "/app/bot.py", line 81, in __call__
+2026-09-12T05:23:32.112698549Z [err]      return await handler(event, data)
+2026-09-12T05:23:32.112700809Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.112703209Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
+2026-09-12T05:23:32.112705609Z [err]      return await wrapped()
+2026-09-12T05:23:32.112707939Z [err]             ^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.112768108Z [err]    File "/app/bot.py", line 514, in cmd_start
+2026-09-12T05:23:32.112772008Z [err]      await send_welcome(bot, msg.chat.id, lang)
+2026-09-12T05:23:32.112775048Z [err]    File "/app/bot.py", line 448, in send_welcome
+2026-09-12T05:23:32.112777858Z [err]      return await send_with_markup_fallback(
+2026-09-12T05:23:32.112780358Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.112783428Z [err]    File "/app/bot.py", line 402, in send_with_markup_fallback
+2026-09-12T05:23:32.112786058Z [err]      return await send_func(**kwargs)
+2026-09-12T05:23:32.112788638Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.113554073Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 2854, in send_message
+2026-09-12T05:23:32.113557493Z [err]      return await self(call, request_timeout=request_timeout)
+2026-09-12T05:23:32.113560053Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.113562703Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 482, in __call__
+2026-09-12T05:23:32.113565573Z [err]      return await self.session(self, method, timeout=request_timeout)
+2026-09-12T05:23:32.113568083Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.113570593Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 254, in __call__
+2026-09-12T05:23:32.113573263Z [err]      return cast(TelegramType, await middleware(bot, method))
+2026-09-12T05:23:32.113575643Z [err]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.113578443Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/aiohttp.py", line 185, in make_request
+2026-09-12T05:23:32.113580873Z [err]      response = self.check_response(
+2026-09-12T05:23:32.113583433Z [err]                 ^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.113585783Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 120, in check_response
+2026-09-12T05:23:32.113588453Z [err]      raise TelegramBadRequest(method=method, message=description)
+2026-09-12T05:23:32.113591512Z [err]  aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: DOCUMENT_INVALID
+2026-09-12T05:23:32.507290155Z [err]      return cast(TelegramType, await middleware(bot, method))
+2026-09-12T05:23:32.507300724Z [err]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.507365945Z [err]  2026-09-12 05:23:32,499 - [INFO] - Update id=177240003 is not handled. Duration 1244 ms by bot id=8839105396
+2026-09-12T05:23:32.507368615Z [err]  2026-09-12 05:23:32,499 - [ERROR] - Cause exception while process update id=177240003 by bot id=8839105396
+2026-09-12T05:23:32.507371345Z [err]  TelegramBadRequest: Telegram server says - Bad Request: DOCUMENT_INVALID
+2026-09-12T05:23:32.507374295Z [err]  Traceback (most recent call last):
+2026-09-12T05:23:32.507377335Z [err]    File "/app/bot.py", line 440, in send_welcome
+2026-09-12T05:23:32.507379945Z [err]      return await send_with_markup_fallback(
+2026-09-12T05:23:32.507382595Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.507385455Z [err]    File "/app/bot.py", line 402, in send_with_markup_fallback
+2026-09-12T05:23:32.507387895Z [err]      return await send_func(**kwargs)
+2026-09-12T05:23:32.507390955Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.507394025Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 2924, in send_photo
+2026-09-12T05:23:32.507396455Z [err]      return await self(call, request_timeout=request_timeout)
+2026-09-12T05:23:32.507399054Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.507402114Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 482, in __call__
+2026-09-12T05:23:32.507405164Z [err]      return await self.session(self, method, timeout=request_timeout)
+2026-09-12T05:23:32.507409384Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.507413084Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 254, in __call__
+2026-09-12T05:23:32.508385267Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/aiohttp.py", line 185, in make_request
+2026-09-12T05:23:32.508389297Z [err]      response = self.check_response(
+2026-09-12T05:23:32.508392397Z [err]                 ^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.508395287Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 120, in check_response
+2026-09-12T05:23:32.508398647Z [err]      raise TelegramBadRequest(method=method, message=description)
+2026-09-12T05:23:32.508401797Z [err]  aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: DOCUMENT_INVALID
+2026-09-12T05:23:32.508404867Z [err]  
+2026-09-12T05:23:32.508408197Z [err]  During handling of the above exception, another exception occurred:
+2026-09-12T05:23:32.508411477Z [err]  
+2026-09-12T05:23:32.508414907Z [err]  Traceback (most recent call last):
+2026-09-12T05:23:32.508418187Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 309, in _process_update
+2026-09-12T05:23:32.508421377Z [err]      response = await self.feed_update(bot, update, **kwargs)
+2026-09-12T05:23:32.508427387Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.508430617Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 158, in feed_update
+2026-09-12T05:23:32.508434177Z [err]      response = await self.update.wrap_outer_middleware(
+2026-09-12T05:23:32.508437517Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.508441397Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/error.py", line 25, in __call__
+2026-09-12T05:23:32.508445067Z [err]      return await handler(event, data)
+2026-09-12T05:23:32.508448407Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.508451497Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 56, in __call__
+2026-09-12T05:23:32.509549740Z [err]      return await handler(event, data)
+2026-09-12T05:23:32.509555890Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.509559250Z [err]      return await wrapped()
+2026-09-12T05:23:32.509559910Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/fsm/middleware.py", line 42, in __call__
+2026-09-12T05:23:32.509563770Z [err]      return await handler(event, data)
+2026-09-12T05:23:32.509565640Z [err]             ^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.509567450Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.509568749Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/dispatcher.py", line 276, in _listen_update
+2026-09-12T05:23:32.509571179Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
+2026-09-12T05:23:32.509573119Z [err]      return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+2026-09-12T05:23:32.509575069Z [err]      return await wrapped_inner(event, kwargs)
+2026-09-12T05:23:32.509577119Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.509579419Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.509580259Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
+2026-09-12T05:23:32.509582979Z [err]      return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+2026-09-12T05:23:32.509583359Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
+2026-09-12T05:23:32.509585779Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.509590779Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
+2026-09-12T05:23:32.510192485Z [err]      return await self._propagate_event(
+2026-09-12T05:23:32.510198285Z [err]    File "/app/bot.py", line 448, in send_welcome
+2026-09-12T05:23:32.510200535Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.510206755Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/router.py", line 166, in _propagate_event
+2026-09-12T05:23:32.510207975Z [err]      return await send_with_markup_fallback(
+2026-09-12T05:23:32.510213085Z [err]      response = await observer.trigger(event, **kwargs)
+2026-09-12T05:23:32.510215415Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.510220985Z [err]                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.510221665Z [err]    File "/app/bot.py", line 402, in send_with_markup_fallback
+2026-09-12T05:23:32.510228164Z [err]      return await send_func(**kwargs)
+2026-09-12T05:23:32.510229124Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
+2026-09-12T05:23:32.510235654Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.510238254Z [err]      return await wrapped_inner(event, kwargs)
+2026-09-12T05:23:32.510242044Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.510245564Z [err]    File "/app/bot.py", line 81, in __call__
+2026-09-12T05:23:32.510249074Z [err]      return await handler(event, data)
+2026-09-12T05:23:32.510253064Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.510257064Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
+2026-09-12T05:23:32.510260574Z [err]      return await wrapped()
+2026-09-12T05:23:32.510264594Z [err]             ^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.510267854Z [err]    File "/app/bot.py", line 514, in cmd_start
+2026-09-12T05:23:32.510270814Z [err]      await send_welcome(bot, msg.chat.id, lang)
+2026-09-12T05:23:32.510755291Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 2854, in send_message
+2026-09-12T05:23:32.510759311Z [err]      return await self(call, request_timeout=request_timeout)
+2026-09-12T05:23:32.510762961Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.510766620Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/bot.py", line 482, in __call__
+2026-09-12T05:23:32.510770161Z [err]      return await self.session(self, method, timeout=request_timeout)
+2026-09-12T05:23:32.510773891Z [err]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.510776871Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 254, in __call__
+2026-09-12T05:23:32.510780051Z [err]      return cast(TelegramType, await middleware(bot, method))
+2026-09-12T05:23:32.510783291Z [err]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.510787051Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/aiohttp.py", line 185, in make_request
+2026-09-12T05:23:32.510790711Z [err]      response = self.check_response(
+2026-09-12T05:23:32.510793721Z [err]                 ^^^^^^^^^^^^^^^^^^^^
+2026-09-12T05:23:32.510796781Z [err]    File "/opt/venv/lib/python3.12/site-packages/aiogram/client/session/base.py", line 120, in check_response
+2026-09-12T05:23:32.510799871Z [err]      raise TelegramBadRequest(method=method, message=description)
+2026-09-12T05:23:32.510802581Z [err]  aiogram.exceptions.TelegramBadRequest: Telegram server says - Bad Request: DOCUMENT_INVALID

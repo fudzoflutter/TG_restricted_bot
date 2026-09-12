@@ -61,7 +61,16 @@ E_SAVE = "5271600761883117622"
 _use_button_icons = True
 
 
+# Telegram currently rejects <tg-emoji> entities sent by this bot with
+# "Bad Request: DOCUMENT_INVALID" (even for plain text messages), so custom
+# emoji in texts/captions are disabled and the identical plain emoji is used.
+# Flip to True to re-enable if Telegram starts accepting them again.
+_USE_TEXT_CUSTOM_EMOJI = False
+
+
 def ae(emoji_id: str, fallback: str) -> str:
+    if not _USE_TEXT_CUSTOM_EMOJI:
+        return fallback
     return f'<tg-emoji emoji-id="{emoji_id}">{fallback}</tg-emoji>'
 
 
@@ -416,6 +425,21 @@ async def send_with_markup_fallback(send_func, **kwargs):
             except TelegramBadRequest:
                 kwargs.pop("reply_markup", None)
                 return await send_func(**kwargs)
+        if "document_invalid" in err:
+            # Telegram reports <tg-emoji> parse failures as DOCUMENT_INVALID;
+            # strip them from caption/text and retry with plain emoji.
+            stripped = False
+            for key in ("caption", "text"):
+                val = kwargs.get(key)
+                if val and "<tg-emoji" in val:
+                    kwargs[key] = isolation.strip_tg_emoji(val)
+                    stripped = True
+            if stripped:
+                try:
+                    return await send_func(**kwargs)
+                except TelegramBadRequest:
+                    pass
+            raise
         if any(tok in err for tok in ("emoji", "icon", "custom_emoji")):
             _use_button_icons = False
             if kwargs.get("reply_markup") is not None:
@@ -436,21 +460,23 @@ async def send_welcome(bot_instance, chat_id: int, lang: str):
     markup = connect_keyboard()
     caption = welcome_caption(lang)
     photo_path = "mooodypic.jpg"
-    try:
-        return await send_with_markup_fallback(
-            bot_instance.send_photo,
-            chat_id=chat_id,
-            photo=FSInputFile(photo_path),
-            caption=caption,
-            reply_markup=markup,
-        )
-    except (TelegramBadRequest, FileNotFoundError, OSError):
-        return await send_with_markup_fallback(
-            bot_instance.send_message,
-            chat_id=chat_id,
-            text=caption,
-            reply_markup=connect_keyboard(),
-        )
+    if os.path.isfile(photo_path):
+        try:
+            return await send_with_markup_fallback(
+                bot_instance.send_photo,
+                chat_id=chat_id,
+                photo=FSInputFile(photo_path),
+                caption=caption,
+                reply_markup=markup,
+            )
+        except (TelegramBadRequest, FileNotFoundError, OSError):
+            pass
+    return await send_with_markup_fallback(
+        bot_instance.send_message,
+        chat_id=chat_id,
+        text=caption,
+        reply_markup=connect_keyboard(),
+    )
 
 
 def how_it_works_text(lang: str) -> str:
