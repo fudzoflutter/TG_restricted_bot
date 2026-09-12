@@ -100,6 +100,8 @@ PRICE_YEAR  = 700   # 1 yil
 REQUIRE_PREMIUM = False
 # True → show a 💎 Premium button in the reply menu (opens /buy).
 SHOW_PREMIUM_BUTTON = False
+# Runtime override (DB-backed, toggled live from /admin) — do not edit here.
+_premium_visible: bool = False
 # ╚═════════════════════════ END OF CUSTOMIZATION ═════════════════════════╝
 
 
@@ -223,8 +225,8 @@ def get_main_menu_keyboard(lang: str = "ru") -> ReplyKeyboardMarkup:
         [kb(lb["stats"], COLOR_MENU, E_CHART)],
         [kb(lb["how"], COLOR_MENU, E_SPY)],
     ]
-    if SHOW_PREMIUM_BUTTON:
-        rows.append([kb("💎 Premium", COLOR_MENU, E_FIRE)])
+    if SHOW_PREMIUM_BUTTON or _premium_visible:
+        rows.append([kb(t(lang, "btn_premium"), COLOR_MENU, E_FIRE)])
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=True)
 
 
@@ -1087,6 +1089,9 @@ def _adm_root_keyboard(lang: str) -> InlineKeyboardMarkup:
          ib(t(lang, "adm_users"), callback_data="adm:users", style=COLOR_SECONDARY)],
         [ib(t(lang, "adm_premium"), callback_data="adm:prem", style=COLOR_SECONDARY),
          ib(t(lang, "adm_ban"), callback_data="adm:ban", style="danger")],
+        [ib(t("uz", "adm_prem_vis").format(
+            state=(t("uz", "adm_prem_vis_on") if _premium_visible else t("uz", "adm_prem_vis_off"))
+        ), callback_data="adm:prem_vis", style=COLOR_SECONDARY)],
     ])
 
 
@@ -1284,6 +1289,81 @@ async def cmd_cancel(msg: Message):
         await msg.answer(t("uz", "adm_title"), reply_markup=_adm_root_keyboard("uz"))
 
 
+@dp.callback_query(F.data == "adm:prem_vis")
+async def cb_adm_prem_vis(call: CallbackQuery):
+    """Toggle the 💎 Premium menu button for ALL users (runtime, DB-backed)."""
+    global _premium_visible
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    _premium_visible = not _premium_visible
+    await db.set_bot_setting("show_premium_button", _premium_visible)
+    state_txt = t("uz", "adm_prem_vis_on") if _premium_visible else t("uz", "adm_prem_vis_off")
+    try:
+        await call.message.edit_text(
+            t("uz", "adm_prem_vis_ok").format(state=state_txt),
+            reply_markup=_adm_root_keyboard("uz"),
+        )
+    except Exception:
+        await call.message.answer(t("uz", "adm_prem_vis_ok").format(state=state_txt),
+                                  reply_markup=_adm_root_keyboard("uz"))
+    await call.answer()
+
+
+def _sanitize_entities(msg: Message) -> Optional[list]:
+    """Entities minus custom-emoji (premium) entries — the plain fallback chars
+    stay in the text, so nothing visible is lost."""
+    if not (msg.text or msg.caption):
+        return None
+    ents = (msg.entities if msg.text else msg.caption_entities) or []
+    return [e for e in ents if getattr(e, "type", "") != "custom_emoji"] or None
+
+
+async def _bc_fallback_send(uid: int, src: Message) -> None:
+    """Re-send broadcast content without exotic entities (DOCUMENT_INVALID etc.)."""
+    text = src.text or src.caption or ""
+    ents = _sanitize_entities(src)
+    if src.photo:
+        await bot.send_photo(uid, src.photo[-1].file_id, caption=text or None,
+                             caption_entities=ents if text else None)
+    elif src.video:
+        await bot.send_video(uid, src.video.file_id, caption=text or None,
+                             caption_entities=ents if text else None)
+    elif src.animation:
+        await bot.send_animation(uid, src.animation.file_id, caption=text or None,
+                                 caption_entities=ents if text else None)
+    elif src.audio:
+        await bot.send_audio(uid, src.audio.file_id, caption=text or None,
+                             caption_entities=ents if text else None)
+    elif src.voice:
+        await bot.send_voice(uid, src.voice.file_id, caption=text or None,
+                             caption_entities=ents if text else None)
+    elif src.video_note:
+        await bot.send_video_note(uid, src.video_note.file_id)
+    elif src.document:
+        await bot.send_document(uid, src.document.file_id, caption=text or None,
+                                caption_entities=ents if text else None)
+    elif text:
+        await bot.send_message(uid, text, entities=ents)
+    else:
+        raise RuntimeError("nothing sendable in broadcast source")
+
+
+async def _bc_send_one(uid: int, src: Message) -> None:
+    """copy_message first (keeps premium emoji); on entity/format rejection,
+    re-send sanitized content so the ad still reaches the user."""
+    try:
+        await bot.copy_message(chat_id=uid, from_chat_id=src.chat.id, message_id=src.message_id)
+        return
+    except TelegramBadRequest as e:
+        desc = (getattr(e, "message", "") or "").lower()
+        if not any(x in desc for x in (
+            "document_invalid", "entity", "emoji", "parse", "unsupported",
+        )):
+            raise
+    await _bc_fallback_send(uid, src)
+
+
 @dp.callback_query(F.data == "adm:bc_yes")
 async def cb_adm_bc_yes(call: CallbackQuery):
     if not db.is_admin(call.from_user.id):
@@ -1296,14 +1376,25 @@ async def cb_adm_bc_yes(call: CallbackQuery):
     await call.message.answer(t("uz", "adm_bc_start"))
     ids = [r["user_id"] for r in await db.list_known_users(1000)]
     ok = fail = 0
+    errors: Dict[int, str] = {}
     for uid in ids:
         try:
-            await bot.copy_message(chat_id=uid, from_chat_id=src.chat.id, message_id=src.message_id)
+            await _bc_send_one(uid, src)
             ok += 1
-        except Exception:
+        except Exception as e:
             fail += 1
+            desc = getattr(e, "message", "") or str(e)
+            errors[uid] = desc[:60]
+            # User blocked the bot → their feed is dead too; drop stale row.
+            if "bot was blocked" in desc or "chat not found" in desc or "user is deactivated" in desc:
+                conn_id = await db.get_connection_id(uid)
+                if conn_id:
+                    await db.delete_connection(conn_id)
         await asyncio.sleep(0.05)
     await call.message.answer(t("uz", "adm_bc_done").format(ok=ok, fail=fail))
+    if errors:
+        detail = "\n".join(f"• <code>{uid}</code>: {err}" for uid, err in list(errors.items())[:15])
+        await call.message.answer("⚠️ Xatolar:\n" + detail)
     await call.answer()
 
 
@@ -1358,8 +1449,16 @@ async def on_admin_message(msg: Message):
 async def on_business_connection(conn: BusinessConnection):
     if not conn.is_enabled:
         # User removed/disabled the bot in their profile — drop the row so
-        # /start reflects reality (and no stale feed keeps processing).
+        # /start reflects reality (and no stale feed keeps processing),
+        # and DM them a reconnect prompt.
         await db.delete_connection(conn.id)
+        owner = conn.user.id if conn.user else await db.get_owner_by_connection(conn.id)
+        if owner:
+            st = await db.get_user_settings(owner)
+            try:
+                await bot.send_message(owner, t(st["language"], "bc_disconnect"))
+            except Exception:
+                pass
         return
     if not await db.is_allowed(conn.user.id):
         st = await db.get_user_settings(conn.user.id)
@@ -1622,11 +1721,12 @@ async def premium_expiry_loop() -> None:
 
 
 async def main():
-    global BOT_USERNAME
+    global BOT_USERNAME, _premium_visible
     if not config.ADMIN_ID:
         logging.error("MY_USER_ID is 0 — set your Telegram id in .env so the allowlist works")
     isolation.MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
     await db.init_db()
+    _premium_visible = await db.get_bot_setting("show_premium_button", SHOW_PREMIUM_BUTTON)
     me = await bot.get_me()
     BOT_USERNAME = me.username or ""
     await start_healthcheck()

@@ -93,6 +93,12 @@ CREATE TABLE IF NOT EXISTS premium_users (
     notified BOOLEAN DEFAULT FALSE
 );
 
+-- Runtime admin toggles (e.g. showing the 💎 Premium button to all users)
+CREATE TABLE IF NOT EXISTS bot_settings (
+    key    TEXT PRIMARY KEY,
+    value  BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 -- 10. Banned users
 CREATE TABLE IF NOT EXISTS banned_users (
     user_id BIGINT PRIMARY KEY

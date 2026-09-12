@@ -113,6 +113,29 @@ async def update_user_setting(user_id: int, field: str, value: Any):
 
 
 # ---------------------------------------------------------------------------
+# BOT SETTINGS (runtime admin toggles — visible to every user instantly)
+# ---------------------------------------------------------------------------
+async def get_bot_setting(key: str, default: bool) -> bool:
+    sb = get_supabase()
+    try:
+        res = sb.table("bot_settings").select("value").eq("key", key).limit(1).execute()
+        row = _one(res)
+        if row:
+            return bool(row.get("value", default))
+    except Exception as e:
+        log.warning(f"get_bot_setting({key}) error: {e}")
+    return default
+
+
+async def set_bot_setting(key: str, value: bool) -> None:
+    sb = get_supabase()
+    try:
+        sb.table("bot_settings").upsert({"key": key, "value": value}).execute()
+    except Exception as e:
+        log.warning(f"set_bot_setting({key}) error: {e}")
+
+
+# ---------------------------------------------------------------------------
 # BUSINESS CONNECTIONS
 # ---------------------------------------------------------------------------
 async def save_connection(connection_id: str, user_id: int):

@@ -230,6 +230,10 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "adm_ban_ok":      "🚫 Ban: <code>{uid}</code>",
         "adm_unban_ok":    "✅ Ban ochildi: <code>{uid}</code>",
         "adm_prem_list_hdr": "💎 <b>Premium foydalanuvchilar:</b>\n\n",
+        "adm_prem_vis":    "💎 Tugma ko'rinishi: {state}",
+        "adm_prem_vis_on": "✅ Yoniq (hamma ko'radi)",
+        "adm_prem_vis_off": "❌ O'chiq (yashirin)",
+        "adm_prem_vis_ok": "✅ Saqlandi. Endi tugma: {state}",
         "adm_banlist_hdr": "🚫 <b>Banlanganlar:</b>\n\n",
         "adm_empty":       "Bo'sh.",
         "adm_trial_end":   "⏳ Premium tugashiga 1 kun qoldi. Uzaytirish: /buy",
@@ -245,12 +249,7 @@ LOCALES: Dict[str, Dict[str, str]] = {
             "Bot asosiy funksiyalari premium obuna bilan ishlaydi.\n"
             "To'lov qilingan zahoti bot darhol faollashadi 👇"
         ),
-        "req_admin":       "📨 <b>Yangi ruxsat so'rovi!</b>\n\n👤 {name}\n🆔 <code>{uid}</code> /start bosdi.",
-        "req_approve":     "✅ Ruxsat berish",
-        "req_ban":         "🚫 Ban",
-        "req_approved":    "✅ <code>{uid}</code> ruxsat berildi.",
-        "req_banned":      "🚫 <code>{uid}</code> banlandi.",
-        "req_user_ok":     "✅ Adminga ruxsat berdingiz! Botni ishga tushirish uchun /start bosing.",
+        "bc_disconnect":   "⚠️ <b>Bot profilingizdan uzildi!</b>\n\nO'chirilgan/tahrirlangan xabarlar endi ushlanmaydi.\nQayta ulash: Sozlamalar → Chatbots → botni qayta qo'shing, so'ng /start bosing.",
     },
 }
 
