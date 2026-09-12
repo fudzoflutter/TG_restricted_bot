@@ -2,6 +2,7 @@
 database.py — Supabase (PostgreSQL) backend
 """
 import logging
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from supabase import create_client, Client
@@ -13,6 +14,14 @@ import isolation
 log = logging.getLogger(__name__)
 
 _supabase: Optional[Client] = None
+
+
+def effective_language(requested: Optional[str] = None) -> str:
+    """Return the single forced language if set, else the user's choice."""
+    forced = getattr(config, "FORCE_LANGUAGE", "")
+    if forced:
+        return forced
+    return requested or "ru"
 
 
 def get_supabase() -> Client:
@@ -76,12 +85,16 @@ async def get_user_settings(user_id: int) -> Dict[str, Any]:
         res = sb.table("user_settings").select("*").eq("user_id", user_id).limit(1).execute()
         row = _one(res)
         if row:
+            if getattr(config, "FORCE_LANGUAGE", ""):
+                row["language"] = config.FORCE_LANGUAGE
             return row
     except Exception as e:
         log.warning(f"get_user_settings error: {e}")
 
     # Yo'q bo'lsa — default qaytaramiz va saqlaymiz
     row = {"user_id": user_id, **DEFAULT_SETTINGS}
+    if getattr(config, "FORCE_LANGUAGE", ""):
+        row["language"] = config.FORCE_LANGUAGE
     try:
         sb.table("user_settings").upsert(row).execute()
     except Exception as e:
@@ -91,6 +104,8 @@ async def get_user_settings(user_id: int) -> Dict[str, Any]:
 
 async def update_user_setting(user_id: int, field: str, value: Any):
     sb = get_supabase()
+    if field == "language" and getattr(config, "FORCE_LANGUAGE", ""):
+        return  # language switching is disabled while FORCE_LANGUAGE is set
     try:
         sb.table("user_settings").update({field: value}).eq("user_id", user_id).execute()
     except Exception as e:
@@ -314,6 +329,157 @@ async def get_contact_stats(owner_id: int, sender_id: Optional[int], day_start_i
             if not with_date:
                 log.warning(f"get_contact_stats error: {e}")
     return {}
+
+
+# ---------------------------------------------------------------------------
+# PREMIUM / BANS / ADMIN
+# ---------------------------------------------------------------------------
+PREMIUM_PLANS = {"week": 7, "month": 30, "year": 365}
+
+
+async def is_banned(user_id: int) -> bool:
+    sb = get_supabase()
+    try:
+        res = sb.table("banned_users").select("user_id").eq("user_id", user_id).limit(1).execute()
+        return bool(_one(res))
+    except Exception as e:
+        log.warning(f"is_banned error: {e}")
+        return False
+
+
+async def ban_user(user_id: int) -> None:
+    sb = get_supabase()
+    try:
+        sb.table("banned_users").upsert({"user_id": user_id}).execute()
+    except Exception as e:
+        log.warning(f"ban_user error: {e}")
+    await purge_owner_runtime(user_id)
+
+
+async def unban_user(user_id: int) -> None:
+    sb = get_supabase()
+    try:
+        sb.table("banned_users").delete().eq("user_id", user_id).execute()
+    except Exception as e:
+        log.warning(f"unban_user error: {e}")
+
+
+async def list_banned() -> List[int]:
+    sb = get_supabase()
+    try:
+        res = sb.table("banned_users").select("user_id").execute()
+        return [r["user_id"] for r in (getattr(res, "data", None) or []) if r.get("user_id")]
+    except Exception as e:
+        log.warning(f"list_banned error: {e}")
+        return []
+
+
+async def premium_grant(user_id: int, days: int) -> None:
+    """Grant (or extend) premium for a user. days <= 0 revokes it."""
+    sb = get_supabase()
+    until = (datetime.utcnow() + timedelta(days=days)).isoformat()
+    try:
+        sb.table("premium_users").upsert({
+            "user_id": user_id,
+            "until": until,
+            "notified": False,
+        }).execute()
+    except Exception as e:
+        log.warning(f"premium_grant error: {e}")
+
+
+async def premium_revoke(user_id: int) -> None:
+    sb = get_supabase()
+    try:
+        sb.table("premium_users").delete().eq("user_id", user_id).execute()
+    except Exception as e:
+        log.warning(f"premium_revoke error: {e}")
+
+
+async def premium_until(user_id: int) -> Optional[str]:
+    sb = get_supabase()
+    try:
+        res = sb.table("premium_users").select("until").eq("user_id", user_id).limit(1).execute()
+        row = _one(res)
+        return row["until"] if row else None
+    except Exception as e:
+        log.warning(f"premium_until error: {e}")
+        return None
+
+
+async def premium_active(user_id: int) -> bool:
+    until = await premium_until(user_id)
+    if not until:
+        return False
+    try:
+        return datetime.fromisoformat(until) > datetime.utcnow()
+    except ValueError:
+        return False
+
+
+async def premium_list() -> List[Dict[str, Any]]:
+    sb = get_supabase()
+    try:
+        res = sb.table("premium_users").select("user_id,until").order("until").execute()
+        return getattr(res, "data", None) or []
+    except Exception as e:
+        log.warning(f"premium_list error: {e}")
+        return []
+
+
+async def premium_expiring_tomorrow() -> List[int]:
+    """Premium users whose subscription ends within 24h and were not notified yet."""
+    sb = get_supabase()
+    now = datetime.utcnow()
+    soon = (now + timedelta(days=1)).isoformat()
+    now_iso = now.isoformat()
+    try:
+        res = (
+            sb.table("premium_users")
+            .select("user_id")
+            .gt("until", now_iso)
+            .lt("until", soon)
+            .eq("notified", False)
+            .execute()
+        )
+        return [r["user_id"] for r in (getattr(res, "data", None) or []) if r.get("user_id")]
+    except Exception as e:
+        log.warning(f"premium_expiring_tomorrow error: {e}")
+        return []
+
+
+async def mark_premium_notified(user_id: int) -> None:
+    sb = get_supabase()
+    try:
+        sb.table("premium_users").update({"notified": True}).eq("user_id", user_id).execute()
+    except Exception as e:
+        log.warning(f"mark_premium_notified error: {e}")
+
+
+async def list_known_users(limit: int = 20) -> List[Dict[str, Any]]:
+    sb = get_supabase()
+    try:
+        res = (
+            sb.table("user_settings")
+            .select("user_id,language")
+            .order("user_id")
+            .limit(limit)
+            .execute()
+        )
+        return getattr(res, "data", None) or []
+    except Exception as e:
+        log.warning(f"list_known_users error: {e}")
+        return []
+
+
+async def count_rows(table: str) -> int:
+    sb = get_supabase()
+    try:
+        res = sb.table(table).select("*", count="exact").limit(1).execute()
+        return int(getattr(res, "count", 0) or 0)
+    except Exception as e:
+        log.warning(f"count_rows({table}) error: {e}")
+        return 0
 
 
 # ---------------------------------------------------------------------------

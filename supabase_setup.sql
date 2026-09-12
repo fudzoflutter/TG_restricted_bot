@@ -86,6 +86,18 @@ CREATE TABLE IF NOT EXISTS allowed_users (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- 9. Premium subscriptions
+CREATE TABLE IF NOT EXISTS premium_users (
+    user_id  BIGINT PRIMARY KEY,
+    until    TIMESTAMPTZ NOT NULL,
+    notified BOOLEAN DEFAULT FALSE
+);
+
+-- 10. Banned users
+CREATE TABLE IF NOT EXISTS banned_users (
+    user_id BIGINT PRIMARY KEY
+);
+
 -- 8. Per-owner message isolation
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS owner_id BIGINT;
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS connection_id TEXT;
@@ -112,7 +124,9 @@ BEGIN
         'messages',
         'deleted_messages',
         'edited_messages',
-        'allowed_users'
+        'allowed_users',
+        'premium_users',
+        'banned_users'
     ]
     LOOP
         EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);

@@ -61,6 +61,12 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "stats_audio":       "Аудио",
         "stats_documents":   "Документы",
         "stats_animations":  "GIF",
+        "btn_premium":     "💎 Premium",
+        "premium_required": (
+            "💎 <b>Требуется Premium!</b>\n\n"
+            "Основные функции бота работают по премиум-подписке.\n"
+            "После оплаты бот активируется сразу 👇"
+        ),
     },
     "en": {
         "start": "👋 <b>Anti-Delete Bot is active!</b>\nUse /settings to configure options.",
@@ -121,6 +127,12 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "stats_audio":       "Audio",
         "stats_documents":   "Documents",
         "stats_animations":  "GIFs",
+        "btn_premium":     "💎 Premium",
+        "premium_required": (
+            "💎 <b>Premium required!</b>\n\n"
+            "The bot's core features work with a premium subscription.\n"
+            "It activates immediately after payment 👇"
+        ),
     },
     "uz": {
         "start": "👋 <b>Anti-o'chirish boti faol!</b>\nSozlamalar uchun /settings dan foydalaning.",
@@ -181,6 +193,52 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "stats_audio":       "Audio",
         "stats_documents":   "Hujjatlar",
         "stats_animations":  "GIF",
+        # ---- monetization ----
+        "buy_title":       "💎 <b>Premium</b>\n\nPremiyni faollashtirsangiz bot barcha imkoniyatlari cheklovsiz ishlaydi.\n\nRejani tanlang:",
+        "buy_week":        "1 hafta — 59 ⭐",
+        "buy_month":       "1 oy — 149 ⭐",
+        "buy_year":        "1 yil — 700 ⭐",
+        "pay_sent":        "✅ To'lov qabul qilindi! Premium faol: <b>{plan}</b>. Rahmat!",
+        "pay_failed":      "⚠️ To'lovni qayta ishlashda xatolik. Admin bilan bog'laning.",
+        # ---- admin panel ----
+        "adm_title":       "🛠 <b>Admin panel</b>",
+        "adm_denied":      "⛔️ Faqat admin uchun.",
+        "adm_stats":       "👥 Foydalanuvchilar: <b>{users}</b> | Ulangan: <b>{conns}</b> | Premium: <b>{prem}</b> | Ban: <b>{banned}</b>",
+        "adm_broadcast":   "📢 Reklama yuborish",
+        "adm_users":       "👥 Foydalanuvchilar",
+        "adm_premium":     "💎 Premium",
+        "adm_back":        "⬅️ Admin panelga",
+        "adm_ask_text":    "📢 Reklama matnini yuboring (rasm ham bo'lishi mumkin). Bekor qilish: /admin",
+        "adm_bc_start":    "Yuborilmoqda…",
+        "adm_bc_done":     "✅ Yuborildi: {ok} ta | ❌ Xato: {fail} ta",
+        "adm_bc_ask":      "Yuborishni tasdiqlaysizmi? ({n} ta foydalanuvchi)",
+        "adm_yes":         "✅ Yuborish",
+        "adm_no":          "❌ Bekor qilish",
+        "adm_users_hdr":   "👥 <b>Foydalanuvchilar (oxirgi {n})</b>\n\n",
+        "adm_users_row":   "• <code>{uid}</code> — {name}{banned}{prem}\n",
+        "adm_prem_title":  "💎 <b>Premium boshqaruvi</b>\n\nFoydalanuvchi ID sini yuboring va keyin rejani tanlang.",
+        "adm_prem_grant":  "➕ Berish (ID yuboring)",
+        "adm_prem_revoke": "➖ Olib tashlash (ID yuboring)",
+        "adm_prem_list":   "📋 Premium ro'yxati",
+        "adm_ban":         "🚫 Ban (ID yuboring)",
+        "adm_unban":       "✅ Ban ochish (ID yuboring)",
+        "adm_banlist":     "📋 Ban ro'yxati",
+        "adm_waiting_id":  "🆔 Foydalanuvchi ID sini yuboring:",
+        "adm_bad_id":      "⚠️ ID ni raqam sifatida yuboring.",
+        "adm_prem_ok":     "✅ Premium berildi: <code>{uid}</code> (muddat: {plan})",
+        "adm_prem_gone":   "✅ Premium olib tashlandi: <code>{uid}</code>",
+        "adm_ban_ok":      "🚫 Ban: <code>{uid}</code>",
+        "adm_unban_ok":    "✅ Ban ochildi: <code>{uid}</code>",
+        "adm_prem_list_hdr": "💎 <b>Premium foydalanuvchilar:</b>\n\n",
+        "adm_banlist_hdr": "🚫 <b>Banlanganlar:</b>\n\n",
+        "adm_empty":       "Bo'sh.",
+        "adm_trial_end":   "⏳ Premium tugashiga 1 kun qoldi. Uzaytirish: /buy",
+        "btn_premium":     "💎 Premium",
+        "premium_required": (
+            "💎 <b>Premium talab qilinadi!</b>\n\n"
+            "Bot asosiy funksiyalari premium obuna bilan ishlaydi.\n"
+            "To'lov qilingan zahoti bot darhol faollashadi 👇"
+        ),
     },
 }
 

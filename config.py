@@ -15,3 +15,7 @@ if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN is not set in .env")
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in .env")
+
+# Force ONE language for every user: "uz", "ru", "en" — or "" to let each
+# user pick their own via the menu.
+FORCE_LANGUAGE: str = os.getenv("FORCE_LANGUAGE", "uz")

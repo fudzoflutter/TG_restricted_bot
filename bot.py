@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from html import escape
 from typing import Any, Awaitable, Callable, Dict, Optional
@@ -16,10 +17,13 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    LabeledPrice,
     Message,
+    PreCheckoutQuery,
     ReplyKeyboardMarkup,
     KeyboardButton,
     TelegramObject,
+    KeyboardButtonRequestUsers,
     FSInputFile,
 )
 
@@ -80,6 +84,22 @@ E_GEAR = "5276246852666758580"
 E_CHART = "5377312262123803976"
 E_LANG = "5413704112220949842"
 E_SAVE = "5271600761883117622"
+
+# --- [4] MONETIZATION — prices in Telegram Stars (XTR) -------------------
+PRICE_WEEK  = 59    # 1 hafta
+PRICE_MONTH = 149   # 1 oy
+PRICE_YEAR  = 700   # 1 yil
+# Plan lengths (days) live in database.PREMIUM_PLANS
+
+# --- [5] PREMIUM GATE -----------------------------------------------------
+# True → the spy feed works ONLY for users with an active premium
+# subscription (the admin is always exempt). Payment activates instantly.
+# FREE LAUNCH: keep False while onboarding users. To go PAID later:
+#   1) set REQUIRE_PREMIUM = True   (locks the feed until payment)
+#   2) set SHOW_PREMIUM_BUTTON = True (shows the 💎 button in the menu)
+REQUIRE_PREMIUM = False
+# True → show a 💎 Premium button in the reply menu (opens /buy).
+SHOW_PREMIUM_BUTTON = False
 # ╚═════════════════════════ END OF CUSTOMIZATION ═════════════════════════╝
 
 
@@ -101,6 +121,10 @@ class AccessMiddleware(BaseMiddleware):
             return await handler(event, data)
         if user is None:
             return await handler(event, data)
+        if await db.is_banned(user.id):
+            if isinstance(event, CallbackQuery):
+                await event.answer("🚫", show_alert=True)
+            return None
         if await db.is_allowed(user.id):
             return await handler(event, data)
         if isinstance(event, Message) and event.text and event.text.startswith("/start"):
@@ -157,20 +181,28 @@ def _menu_labels(lang: str) -> Dict[str, str]:
 _LABELS = [_menu_labels(l) for l in ("en", "uz", "ru")]
 
 
+PREMIUM_TEXTS = {"💎 Premium"}
+
+
 def get_main_menu_keyboard(lang: str = "ru") -> ReplyKeyboardMarkup:
-    """Zenly-style two-button menu (Statistics / How it works)."""
+    """Zenly-style menu (Statistics / How it works [+ Premium])."""
     lb = _menu_labels(lang)
     rows = [
         [kb(lb["stats"], COLOR_MENU, E_CHART)],
         [kb(lb["how"], COLOR_MENU, E_SPY)],
     ]
+    if SHOW_PREMIUM_BUTTON:
+        rows.append([kb("💎 Premium", COLOR_MENU, E_FIRE)])
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=True)
 
 
 def stats_contact_keyboard(lang: str) -> ReplyKeyboardMarkup:
-    """Keyboard with a button that opens Telegram's contact picker (like Zenly)."""
+    """Keyboard with a button that opens Telegram's native USER picker (like Zenly)."""
     rows = [
-        [KeyboardButton(text=t(lang, "stats_pick"), request_contact=True)],
+        [KeyboardButton(
+            text=t(lang, "stats_pick"),
+            request_users=KeyboardButtonRequestUsers(request_id=1, max_quantity=1),
+        )],
         [kb(t(lang, "btn_back_menu"), COLOR_MENU)],
     ]
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=False)
@@ -355,18 +387,13 @@ def get_lang_keyboard() -> InlineKeyboardMarkup:
 
 def connect_keyboard(
     prefer_https: bool = False,
-    with_how: bool = False,
     lang: str = "ru",
 ) -> InlineKeyboardMarkup:
-    rows = []
+    """Single green Connect button (shown under /start)."""
     profile = isolation.connect_profile_url() if not prefer_https else "https://t.me/settings"
-    rows.append([ib(_menu_labels(lang)["connect"], url=profile, style=COLOR_CONNECT, icon=E_CHECK)])
-    biz = isolation.connect_business_url(BOT_USERNAME)
-    if biz:
-        rows.append([ib("Chatbots", url=biz, style=COLOR_SECONDARY, icon=E_GEAR)])
-    if with_how:
-        rows.append([ib(_menu_labels(lang)["how"], callback_data="how_it_works", style=COLOR_SECONDARY, icon=E_SPY)])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [ib(_menu_labels(lang)["connect"], url=profile, style=COLOR_CONNECT, icon=E_CHECK)],
+    ])
 
 
 def how_it_works_keyboard(lang: str = "ru") -> InlineKeyboardMarkup:
@@ -497,7 +524,7 @@ async def send_with_markup_fallback(send_func, **kwargs):
 
 
 async def send_welcome(bot_instance, chat_id: int, lang: str):
-    markup = connect_keyboard(with_how=True, lang=lang)
+    markup = connect_keyboard(lang=lang)
     caption = welcome_caption(lang)
     photo: Any = None
     if WELCOME_PHOTO:
@@ -520,7 +547,7 @@ async def send_welcome(bot_instance, chat_id: int, lang: str):
         bot_instance.send_message,
         chat_id=chat_id,
         text=caption,
-        reply_markup=connect_keyboard(with_how=True, lang=lang),
+        reply_markup=connect_keyboard(lang=lang),
     )
 
 
@@ -549,8 +576,7 @@ def how_it_works_text(lang: str) -> str:
         f"{ae(E_SPY, '😎')} <b>Как работает бот?</b>\n\n"
         "1. <b>Настройки → Редактировать профиль</b> (Connect)\n"
         "2. Chatbots / Chat Automation — добавьте бота (Premium не требуется)\n"
-        "3. Удалённые/изменённые сообщения приходят только вам\n"
-        "4. Одноразовые медиа сразу кэшируются\n\n"
+        "3. Удалённые/изменённые сообщения приходят только вам\n"            "4. Одноразовые медиа сразу кэшируются\n\n"
         "⚡️ В реальном времени, даже офлайн\n"
         "🔐 Данные не смешиваются"
     )
@@ -743,9 +769,36 @@ def _utc_day_start_iso() -> str:
     return now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
 
 
+@dp.message(F.users_shared)
+async def on_users_shared(msg: Message):
+    """Zenly-style stats: native user picker → today's message counts from that user."""
+    st = await db.get_user_settings(msg.from_user.id)
+    lang = st["language"]
+    shared = msg.users_shared.users
+    if not shared:
+        return
+    u = shared[0]
+    counts = await db.get_contact_stats(msg.from_user.id, u.user_id, _utc_day_start_iso())
+    name = " ".join(p for p in [u.first_name, u.last_name] if p).strip()
+    if not name:
+        name = f"@{u.username}" if u.username else str(u.user_id)
+    lines = [f"— {t(lang, loc)}: {counts.get(key, 0)}" for key, loc in _STATS_ORDER]
+    lines += [f"— {t(lang, loc)}: {counts[key]}" for key, loc in _STATS_EXTRA if counts.get(key)]
+    total = sum(counts.values())
+    text = (
+        f"📊 <b>{t(lang, 'stats_for')} {escape(name)} — {t(lang, 'stats_today')}</b>\n\n"
+        f"<blockquote>📥 <b>{t(lang, 'stats_received')}:</b>\n"
+        + "\n".join(lines)
+        + f"\n📦 {t(lang, 'stats_total')}: {total}</blockquote>"
+    )
+    await send_with_markup_fallback(
+        msg.answer, text=text, reply_markup=get_main_menu_keyboard(lang),
+    )
+
+
 @dp.message(F.contact)
 async def on_contact_shared(msg: Message):
-    """Zenly-style stats: user shares a contact, bot counts today's messages from them."""
+    """Fallback for old clients: same stats for a shared phone-book contact."""
     st = await db.get_user_settings(msg.from_user.id)
     lang = st["language"]
     contact = msg.contact
@@ -876,6 +929,345 @@ async def on_topic_edited(msg: Message):
     await db.update_user_topic_name(msg.chat.id, msg.message_thread_id, msg.forum_topic_edited.name)
 
 
+# ===========================================================================
+# 💎 MONETIZATION (Telegram Stars)
+# ===========================================================================
+_STAR_PLANS = {
+    "week": (PRICE_WEEK, "buy_week"),
+    "month": (PRICE_MONTH, "buy_month"),
+    "year": (PRICE_YEAR, "buy_year"),
+}
+
+
+def _premium_keyboard(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [ib(t(lang, "buy_week"), callback_data="buy:week", style=COLOR_SECONDARY)],
+        [ib(t(lang, "buy_month"), callback_data="buy:month", style=COLOR_CONNECT)],
+        [ib(t(lang, "buy_year"), callback_data="buy:year", style=COLOR_SECONDARY)],
+    ])
+
+
+@dp.message(Command("buy"))
+async def cmd_buy(msg: Message):
+    lang = (await db.get_user_settings(msg.from_user.id))["language"]
+    await send_with_markup_fallback(
+        msg.answer,
+        text=t(lang, "buy_title"),
+        reply_markup=_premium_keyboard(lang),
+    )
+
+
+@dp.message(F.text.in_(PREMIUM_TEXTS))
+async def btn_premium(msg: Message):
+    await cmd_buy(msg)
+
+
+@dp.callback_query(F.data.startswith("buy:"))
+async def cb_buy(call: CallbackQuery):
+    lang = (await db.get_user_settings(call.from_user.id))["language"]
+    plan = call.data.split(":")[1]
+    if plan not in _STAR_PLANS:
+        await call.answer()
+        return
+    price, label_key = _STAR_PLANS[plan]
+    try:
+        await call.message.answer_invoice(
+            title=t(lang, label_key),
+            description=t(lang, label_key),
+            payload=f"premium:{plan}",
+            currency="XTR",
+            prices=[LabeledPrice(label=t(lang, label_key), amount=price)],
+        )
+    except TelegramBadRequest as e:
+        logging.warning(f"invoice error: {e}")
+        await call.message.answer(t(lang, "pay_failed"))
+    await call.answer()
+
+
+@dp.pre_checkout_query()
+async def on_pre_checkout(q: PreCheckoutQuery):
+    await q.answer(ok=q.invoice_payload.startswith("premium:"))
+
+
+@dp.message(F.successful_payment)
+async def on_successful_payment(msg: Message):
+    sp = msg.successful_payment
+    plan = (sp.invoice_payload or "").split(":")[-1]
+    days = db.PREMIUM_PLANS.get(plan, 30)
+    await db.premium_grant(msg.from_user.id, days)
+    lang = (await db.get_user_settings(msg.from_user.id))["language"]
+    try:
+        await msg.answer(t(lang, "pay_sent").format(plan=t(lang, _STAR_PLANS.get(plan, (0, "buy_month"))[1])))
+    except Exception:
+        pass
+
+
+# --- premium gate: the spy feed is locked until the user pays -------------
+_PREM_NOTICE_TS: Dict[int, float] = {}
+_PREM_NOTICE_COOLDOWN = 6 * 3600  # remind at most every 6 hours
+
+
+def _premium_locked(owner_id: int) -> bool:
+    return bool(REQUIRE_PREMIUM) and owner_id != config.ADMIN_ID
+
+
+async def _premium_gate_notice(owner_id: int) -> None:
+    """Rate-limited 'pay to activate' reminder with a one-tap invoice button."""
+    now = time.monotonic()
+    if now - _PREM_NOTICE_TS.get(owner_id, 0) < _PREM_NOTICE_COOLDOWN:
+        return
+    _PREM_NOTICE_TS[owner_id] = now
+    lang = (await db.get_user_settings(owner_id))["language"]
+    try:
+        await bot.send_message(
+            owner_id,
+            t(lang, "premium_required"),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [ib(t(lang, "buy_month"), callback_data="buy:month", style=COLOR_CONNECT)],
+            ]),
+        )
+    except Exception:
+        pass
+
+
+# ===========================================================================
+# 🛠 ADMIN PANEL — /admin (broadcast, users, premium, bans)
+# ===========================================================================
+def _adm_root_keyboard(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [ib(t(lang, "adm_broadcast"), callback_data="adm:bc", style=COLOR_CONNECT),
+         ib(t(lang, "adm_users"), callback_data="adm:users", style=COLOR_SECONDARY)],
+        [ib(t(lang, "adm_premium"), callback_data="adm:prem", style=COLOR_SECONDARY),
+         ib(t(lang, "adm_ban"), callback_data="adm:ban", style="danger")],
+    ])
+
+
+@dp.message(Command("admin"))
+async def cmd_admin(msg: Message):
+    if not db.is_admin(msg.from_user.id):
+        await msg.answer(t("uz", "adm_denied"))
+        return
+    users = await db.count_rows("user_settings")
+    conns = await db.count_rows("connections")
+    prem = await db.count_rows("premium_users")
+    banned = await db.count_rows("banned_users")
+    await msg.answer(
+        f"{t('uz', 'adm_title')}\n\n"
+        + t('uz', "adm_stats").format(users=users, conns=conns, prem=prem, banned=banned),
+        reply_markup=_adm_root_keyboard("uz"),
+    )
+
+
+@dp.callback_query(F.data == "adm:users")
+async def cb_adm_users(call: CallbackQuery):
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    rows = await db.list_known_users(20)
+    banlist = set(await db.list_banned())
+    premset = {r["user_id"] for r in await db.premium_list()}
+    lines = []
+    for r in rows:
+        uid = r["user_id"]
+        lines.append(
+            t("uz", "adm_users_row").format(
+                uid=uid, name="id" + str(uid),
+                banned=" 🚫" if uid in banlist else "",
+                prem=" 💎" if uid in premset else "",
+            )
+        )
+    body = t("uz", "adm_users_hdr").format(n=len(rows)) + ("".join(lines) or t("uz", "adm_empty"))
+    await call.message.answer(body)
+    await call.answer()
+
+
+@dp.callback_query(F.data == "adm:bc")
+async def cb_adm_broadcast(call: CallbackQuery):
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    await call.message.answer(t("uz", "adm_ask_text"))
+    await call.answer()
+
+
+@dp.callback_query(F.data == "adm:prem")
+async def cb_adm_premium(call: CallbackQuery):
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [ib(t("uz", "adm_prem_grant"), callback_data="adm:prem_grant")],
+        [ib(t("uz", "adm_prem_revoke"), callback_data="adm:prem_revoke")],
+        [ib(t("uz", "adm_prem_list"), callback_data="adm:prem_list")],
+        [ib(t("uz", "adm_back"), callback_data="adm:root")],
+    ])
+    await call.message.answer(t("uz", "adm_prem_title"), reply_markup=kb)
+    await call.answer()
+
+
+@dp.callback_query(F.data == "adm:ban")
+async def cb_adm_ban(call: CallbackQuery):
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [ib(t("uz", "adm_ban"), callback_data="adm:ban_set")],
+        [ib(t("uz", "adm_unban"), callback_data="adm:ban_unset")],
+        [ib(t("uz", "adm_banlist"), callback_data="adm:ban_list")],
+        [ib(t("uz", "adm_back"), callback_data="adm:root")],
+    ])
+    await call.message.answer(t("uz", "adm_title"), reply_markup=kb)
+    await call.answer()
+
+
+@dp.callback_query(F.data == "adm:root")
+async def cb_adm_root(call: CallbackQuery):
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    try:
+        await call.message.edit_text(t("uz", "adm_title"), reply_markup=_adm_root_keyboard("uz"))
+    except TelegramBadRequest:
+        await call.message.answer(t("uz", "adm_title"), reply_markup=_adm_root_keyboard("uz"))
+    await call.answer()
+
+
+# --- admin input state machine (waiting for IDs / broadcast content) ------
+_ADM_STATES: Dict[int, Optional[str]] = {}
+_ADM_PENDING_BC: Dict[int, Message] = {}
+
+
+async def _adm_set_state(user_id: int, value: Optional[str]) -> None:
+    if value is None:
+        _ADM_STATES.pop(user_id, None)
+    else:
+        _ADM_STATES[user_id] = value
+
+
+async def _adm_pop_state(user_id: int) -> Optional[str]:
+    return _ADM_STATES.pop(user_id, None)
+
+
+def _adm_state_kb(lang: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [ib(t("uz", "adm_back"), callback_data="adm:root")],
+    ])
+
+
+async def _ask_admin_id(call: CallbackQuery, state: str) -> None:
+    await _adm_set_state(call.from_user.id, state)
+    await call.message.answer(t("uz", "adm_waiting_id"), reply_markup=_adm_state_kb("uz"))
+    await call.answer()
+
+
+@dp.callback_query(F.data.in_({"adm:prem_grant", "adm:prem_revoke", "adm:ban_set", "adm:ban_unset"}))
+async def cb_adm_wait_id(call: CallbackQuery):
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    await _ask_admin_id(call, call.data.split(":")[1])
+
+
+@dp.callback_query(F.data == "adm:prem_list")
+async def cb_adm_prem_list(call: CallbackQuery):
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    rows = await db.premium_list()
+    lines = [f"• <code>{r['user_id']}</code> — {str(r.get('until', ''))[:10]}" for r in rows]
+    await call.message.answer(
+        t("uz", "adm_prem_list_hdr") + ("\n".join(lines) or t("uz", "adm_empty"))
+    )
+    await call.answer()
+
+
+@dp.callback_query(F.data == "adm:ban_list")
+async def cb_adm_ban_list(call: CallbackQuery):
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    ids = await db.list_banned()
+    lines = [f"• <code>{i}</code>" for i in ids]
+    await call.message.answer(t("uz", "adm_banlist_hdr") + ("\n".join(lines) or t("uz", "adm_empty")))
+    await call.answer()
+
+
+@dp.message(Command("cancel"))
+async def cmd_cancel(msg: Message):
+    if await _adm_pop_state(msg.from_user.id):
+        await msg.answer(t("uz", "adm_title"), reply_markup=_adm_root_keyboard("uz"))
+
+
+@dp.callback_query(F.data == "adm:bc_yes")
+async def cb_adm_bc_yes(call: CallbackQuery):
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    src = _ADM_PENDING_BC.pop(call.from_user.id, None)
+    if src is None:
+        await call.answer()
+        return
+    await call.message.answer(t("uz", "adm_bc_start"))
+    ids = [r["user_id"] for r in await db.list_known_users(1000)]
+    ok = fail = 0
+    for uid in ids:
+        try:
+            await bot.copy_message(chat_id=uid, from_chat_id=src.chat.id, message_id=src.message_id)
+            ok += 1
+        except Exception:
+            fail += 1
+        await asyncio.sleep(0.05)
+    await call.message.answer(t("uz", "adm_bc_done").format(ok=ok, fail=fail))
+    await call.answer()
+
+
+@dp.callback_query(F.data == "adm:bc_no")
+async def cb_adm_bc_no(call: CallbackQuery):
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    _ADM_PENDING_BC.pop(call.from_user.id, None)
+    await call.message.answer(t("uz", "adm_title"), reply_markup=_adm_root_keyboard("uz"))
+    await call.answer()
+
+
+@dp.message(F.from_user.func(lambda u: bool(config.ADMIN_ID) and u.id == config.ADMIN_ID))
+async def on_admin_message(msg: Message):
+    """Admin free-input: broadcast content (any type) or user IDs. Menu texts
+    and commands are handled by earlier-registered handlers, so they never
+    reach this catch-all."""
+    state = await _adm_pop_state(msg.from_user.id)
+    if not state:
+        return
+    if state == "bc":
+        _ADM_PENDING_BC[msg.from_user.id] = msg
+        n = await db.count_rows("user_settings")
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [ib(t("uz", "adm_yes"), callback_data="adm:bc_yes", style=COLOR_CONNECT),
+             ib(t("uz", "adm_no"), callback_data="adm:bc_no", style="danger")],
+        ])
+        await msg.answer(t("uz", "adm_bc_ask").format(n=n), reply_markup=kb)
+        return
+    raw = (msg.text or "").strip().split()[-1] if msg.text else ""
+    try:
+        uid = int(raw)
+    except ValueError:
+        await msg.answer(t("uz", "adm_bad_id"), reply_markup=_adm_state_kb("uz"))
+        return
+    if state == "prem_grant":
+        await db.premium_grant(uid, db.PREMIUM_PLANS["month"])
+        await msg.answer(t("uz", "adm_prem_ok").format(uid=uid, plan="1 oy"))
+    elif state == "prem_revoke":
+        await db.premium_revoke(uid)
+        await msg.answer(t("uz", "adm_prem_gone").format(uid=uid))
+    elif state == "ban_set":
+        await db.ban_user(uid)
+        await msg.answer(t("uz", "adm_ban_ok").format(uid=uid))
+    elif state == "ban_unset":
+        await db.unban_user(uid)
+        await msg.answer(t("uz", "adm_unban_ok").format(uid=uid))
+
+
 @dp.business_connection()
 async def on_business_connection(conn: BusinessConnection):
     if not await db.is_allowed(conn.user.id):
@@ -958,7 +1350,10 @@ async def persist_business_media(owner_id: int, msg: Message):
 @dp.business_message()
 async def on_business_message(msg: Message):
     owner_id = await db.get_owner_by_connection(msg.business_connection_id)
-    if not owner_id or not await db.is_allowed(owner_id):
+    if not owner_id or await db.is_banned(owner_id) or not await db.is_allowed(owner_id):
+        return
+    if _premium_locked(owner_id) and not await db.premium_active(owner_id):
+        await _premium_gate_notice(owner_id)
         return
 
     await db.cache_message(msg, owner_id)
@@ -1003,8 +1398,14 @@ async def on_business_message(msg: Message):
 @dp.edited_business_message()
 async def on_edited_business_message(msg: Message):
     owner_id = await db.get_owner_by_connection(msg.business_connection_id)
-    if not owner_id or not await db.is_allowed(owner_id):
+    if not owner_id or await db.is_banned(owner_id) or not await db.is_allowed(owner_id):
         return
+    if _premium_locked(owner_id) and not await db.premium_active(owner_id):
+        return
+
+    # The owner's own edits are mirrored to the cache but never reported —
+    # each user only gets notified about OTHER people's edits.
+    is_self_edit = bool(msg.from_user and msg.from_user.id == owner_id)
 
     cached = await db.get_cached_message(owner_id, msg.chat.id, msg.message_id)
     st = await db.get_user_settings(owner_id)
@@ -1013,7 +1414,7 @@ async def on_edited_business_message(msg: Message):
     new_text = msg.text or msg.caption or ""
     old_text = cached["text_content"] if cached else None
 
-    if old_text != new_text:
+    if old_text != new_text and not is_self_edit:
         author_data = cached or {
             "sender_first_name": msg.from_user.first_name if msg.from_user else "",
             "sender_last_name": msg.from_user.last_name if msg.from_user else "",
@@ -1042,7 +1443,9 @@ async def on_edited_business_message(msg: Message):
 @dp.deleted_business_messages()
 async def on_business_messages_deleted(event: BusinessMessagesDeleted):
     owner_id = await db.get_owner_by_connection(event.business_connection_id)
-    if not owner_id or not await db.is_allowed(owner_id):
+    if not owner_id or await db.is_banned(owner_id) or not await db.is_allowed(owner_id):
+        return
+    if _premium_locked(owner_id) and not await db.premium_active(owner_id):
         return
     st = await db.get_user_settings(owner_id)
     lang = st["language"]
@@ -1050,6 +1453,10 @@ async def on_business_messages_deleted(event: BusinessMessagesDeleted):
     async def _one(msg_id: int):
         cached = await db.get_cached_message(owner_id, event.chat.id, msg_id)
         if not cached:
+            return
+        # The delete event carries no sender info, but the cached row does.
+        # Owners never get notified about deleting their OWN messages.
+        if cached.get("sender_id") == owner_id:
             return
         sender_hdr = format_sender_header(cached, st, lang)
         content_type = cached["content_type"]
@@ -1109,6 +1516,21 @@ async def start_healthcheck() -> None:
     logging.info("healthcheck listening on 0.0.0.0:%s", port)
 
 
+async def premium_expiry_loop() -> None:
+    """Notify users 24h before their premium expires."""
+    while True:
+        try:
+            for uid in await db.premium_expiring_tomorrow():
+                try:
+                    await bot.send_message(uid, t("uz", "adm_trial_end"))
+                except Exception:
+                    pass
+                await db.mark_premium_notified(uid)
+        except Exception as e:
+            logging.warning(f"premium_expiry_loop error: {e}")
+        await asyncio.sleep(3600)
+
+
 async def main():
     global BOT_USERNAME
     if not config.ADMIN_ID:
@@ -1119,6 +1541,7 @@ async def main():
     BOT_USERNAME = me.username or ""
     await start_healthcheck()
     await bot.delete_webhook(drop_pending_updates=True)
+    asyncio.create_task(premium_expiry_loop())
     await dp.start_polling(
         bot,
         allowed_updates=[
@@ -1128,6 +1551,7 @@ async def main():
             "business_message",
             "edited_business_message",
             "deleted_business_messages",
+            "pre_checkout_query",
         ],
     )
 
