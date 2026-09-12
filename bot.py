@@ -128,7 +128,9 @@ class AccessMiddleware(BaseMiddleware):
         if await db.is_allowed(user.id):
             return await handler(event, data)
         if isinstance(event, Message) and event.text and event.text.startswith("/start"):
-            await event.answer(t("uz", "access_denied"))
+            asked = await _notify_access_request(data.get("bot"), user)
+            extra = "\n📨 So'rovingiz adminga yuborildi." if asked else ""
+            await event.answer(t("uz", "access_denied") + extra)
         elif isinstance(event, CallbackQuery):
             await event.answer("⛔️", show_alert=True)
         return None
@@ -136,6 +138,36 @@ class AccessMiddleware(BaseMiddleware):
 
 dp.message.middleware(AccessMiddleware())
 dp.callback_query.middleware(AccessMiddleware())
+
+
+# --- access requests: unknown /start → admin gets an Approve/Ban card ---
+_ACCESS_REQ_COOLDOWN: Dict[int, float] = {}
+_ACCESS_REQ_TTL = 6 * 3600.0  # remind at most every 6h per user
+
+
+async def _notify_access_request(bot: Optional[Bot], user: Any) -> bool:
+    """Notify the admin that `user` wants access. Rate-limited; returns True
+    if a notification was actually sent."""
+    if bot is None or not config.ADMIN_ID:
+        return False
+    now = time.time()
+    if now - _ACCESS_REQ_COOLDOWN.get(user.id, 0.0) < _ACCESS_REQ_TTL:
+        return False
+    _ACCESS_REQ_COOLDOWN[user.id] = now
+    name = f"@{user.username}" if getattr(user, "username", None) else user.full_name
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        ib(t("uz", "req_approve"), callback_data=f"req:ok:{user.id}", style=COLOR_CONNECT),
+        ib(t("uz", "req_ban"), callback_data=f"req:no:{user.id}", style="danger"),
+    ]])
+    try:
+        await bot.send_message(
+            config.ADMIN_ID,
+            t("uz", "req_admin").format(uid=user.id, name=escape(name or "")),
+            reply_markup=kb,
+        )
+        return True
+    except Exception:
+        return False
 
 
 def kb(
@@ -587,7 +619,23 @@ async def cmd_start(msg: Message):
     st = await db.get_user_settings(msg.from_user.id)
     lang = st["language"]
 
-    if await db.has_connection(msg.from_user.id):
+    conn_id = await db.get_connection_id(msg.from_user.id)
+    if conn_id:
+        # Trust but verify: the row exists, but the user may have disconnected
+        # while the bot was offline (no update arrived). Ask Telegram directly.
+        conn_live = True
+        try:
+            live = await bot.get_business_connection(conn_id)
+            conn_live = bool(live and getattr(live, "is_enabled", True))
+        except TelegramBadRequest:
+            conn_live = False
+        except Exception:
+            conn_live = True  # Telegram unreachable — don't punish the user
+        if not conn_live:
+            await db.delete_connection(conn_id)
+            conn_id = None
+
+    if conn_id:
         if lang == "en":
             text = (
                 f"{ae(E_CHECK, '✅')} <b>Bot is already connected and working!</b>\n"
@@ -1192,6 +1240,44 @@ async def cb_adm_ban_list(call: CallbackQuery):
     await call.answer()
 
 
+@dp.callback_query(F.data.startswith("req:ok:"))
+async def cb_req_ok(call: CallbackQuery):
+    """Admin tapped ✅ on an access-request card."""
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    try:
+        uid = int(call.data.rsplit(":", 1)[1])
+    except ValueError:
+        await call.answer()
+        return
+    await db.allow_user(uid, config.ADMIN_ID)
+    _ACCESS_REQ_COOLDOWN.pop(uid, None)
+    await call.message.edit_text(t("uz", "req_approved").format(uid=uid))
+    try:
+        await bot.send_message(uid, t("uz", "req_user_ok"))
+    except Exception:
+        pass
+    await call.answer()
+
+
+@dp.callback_query(F.data.startswith("req:no:"))
+async def cb_req_no(call: CallbackQuery):
+    """Admin tapped 🚫 on an access-request card — ban and stop reminders."""
+    if not db.is_admin(call.from_user.id):
+        await call.answer("⛔️", show_alert=True)
+        return
+    try:
+        uid = int(call.data.rsplit(":", 1)[1])
+    except ValueError:
+        await call.answer()
+        return
+    await db.ban_user(uid)
+    _ACCESS_REQ_COOLDOWN.pop(uid, None)
+    await call.message.edit_text(t("uz", "req_banned").format(uid=uid))
+    await call.answer()
+
+
 @dp.message(Command("cancel"))
 async def cmd_cancel(msg: Message):
     if await _adm_pop_state(msg.from_user.id):
@@ -1270,6 +1356,11 @@ async def on_admin_message(msg: Message):
 
 @dp.business_connection()
 async def on_business_connection(conn: BusinessConnection):
+    if not conn.is_enabled:
+        # User removed/disabled the bot in their profile — drop the row so
+        # /start reflects reality (and no stale feed keeps processing).
+        await db.delete_connection(conn.id)
+        return
     if not await db.is_allowed(conn.user.id):
         st = await db.get_user_settings(conn.user.id)
         try:
@@ -1277,21 +1368,20 @@ async def on_business_connection(conn: BusinessConnection):
         except Exception:
             pass
         return
-    if conn.is_enabled:
-        await db.save_connection(conn.id, conn.user.id)
-        st = await db.get_user_settings(conn.user.id)
-        lang = st["language"]
-        text = (
-            "✅ <b>Successfully connected!</b>\nI'm now catching deleted/edited messages in your chats."
-            if lang == "en" else
-            "✅ <b>Muvaffaqiyatli ulandi!</b>\nEndi chatlaringizdagi o'chirilgan/tahrirlangan xabarlarni ushlayman."
-            if lang == "uz" else
-            "✅ <b>Успешно подключено!</b>\nТеперь я перехватываю удалённые/отредактированные сообщения в ваших чатах."
-        )
-        try:
-            await bot.send_message(conn.user.id, text, reply_markup=get_main_menu_keyboard(lang))
-        except Exception:
-            pass
+    await db.save_connection(conn.id, conn.user.id)
+    st = await db.get_user_settings(conn.user.id)
+    lang = st["language"]
+    text = (
+        "✅ <b>Successfully connected!</b>\nI'm now catching deleted/edited messages in your chats."
+        if lang == "en" else
+        "✅ <b>Muvaffaqiyatli ulandi!</b>\nEndi chatlaringizdagi o'chirilgan/tahrirlangan xabarlarni ushlayman."
+        if lang == "uz" else
+        "✅ <b>Успешно подключено!</b>\nТеперь я перехватываю удалённые/отредактированные сообщения в ваших чатах."
+    )
+    try:
+        await bot.send_message(conn.user.id, text, reply_markup=get_main_menu_keyboard(lang))
+    except Exception:
+        pass
 
 
 async def _deliver_protected_media(

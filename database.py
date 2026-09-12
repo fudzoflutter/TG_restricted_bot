@@ -217,6 +217,26 @@ async def has_connection(user_id: int) -> bool:
         return False
 
 
+async def get_connection_id(user_id: int) -> Optional[str]:
+    sb = get_supabase()
+    try:
+        res = sb.table("connections").select("connection_id").eq("user_id", user_id).limit(1).execute()
+        row = _one(res)
+        return row["connection_id"] if row else None
+    except Exception as e:
+        log.warning(f"get_connection_id error: {e}")
+        return None
+
+
+async def delete_connection(connection_id: str) -> None:
+    """Remove one connection row (user disabled/removed the bot from their profile)."""
+    sb = get_supabase()
+    try:
+        sb.table("connections").delete().eq("connection_id", connection_id).execute()
+    except Exception as e:
+        log.warning(f"delete_connection error: {e}")
+
+
 # ---------------------------------------------------------------------------
 # MESSAGE CACHE
 # ---------------------------------------------------------------------------

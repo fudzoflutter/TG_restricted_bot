@@ -233,12 +233,24 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "adm_banlist_hdr": "🚫 <b>Banlanganlar:</b>\n\n",
         "adm_empty":       "Bo'sh.",
         "adm_trial_end":   "⏳ Premium tugashiga 1 kun qoldi. Uzaytirish: /buy",
+        "req_admin":       "📨 <b>Yangi ruxsat so'rovi!</b>\n\n👤 {name}\n🆔 <code>{uid}</code> /start bosdi.",
+        "req_approve":     "✅ Ruxsat berish",
+        "req_ban":         "🚫 Ban",
+        "req_approved":    "✅ <code>{uid}</code> ruxsat berildi.",
+        "req_banned":      "🚫 <code>{uid}</code> banlandi.",
+        "req_user_ok":     "✅ Adminga ruxsat berdingiz! Botni ishga tushirish uchun /start bosing.",
         "btn_premium":     "💎 Premium",
         "premium_required": (
             "💎 <b>Premium talab qilinadi!</b>\n\n"
             "Bot asosiy funksiyalari premium obuna bilan ishlaydi.\n"
             "To'lov qilingan zahoti bot darhol faollashadi 👇"
         ),
+        "req_admin":       "📨 <b>Yangi ruxsat so'rovi!</b>\n\n👤 {name}\n🆔 <code>{uid}</code> /start bosdi.",
+        "req_approve":     "✅ Ruxsat berish",
+        "req_ban":         "🚫 Ban",
+        "req_approved":    "✅ <code>{uid}</code> ruxsat berildi.",
+        "req_banned":      "🚫 <code>{uid}</code> banlandi.",
+        "req_user_ok":     "✅ Adminga ruxsat berdingiz! Botni ishga tushirish uchun /start bosing.",
     },
 }
 
