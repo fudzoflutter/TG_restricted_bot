@@ -98,3 +98,28 @@ CREATE INDEX IF NOT EXISTS idx_messages_owner ON messages(owner_id, chat_id, mes
 CREATE INDEX IF NOT EXISTS idx_allowed_users ON allowed_users(user_id);
 
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS local_path TEXT;
+
+-- Bot uses the anon key; without these policies inserts get 401 / 42501.
+DO $$
+DECLARE
+    t text;
+BEGIN
+    FOREACH t IN ARRAY ARRAY[
+        'connections',
+        'user_settings',
+        'user_topics',
+        'messages',
+        'deleted_messages',
+        'edited_messages',
+        'allowed_users'
+    ]
+    LOOP
+        EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS bot_all ON %I', t);
+        EXECUTE format(
+            'CREATE POLICY bot_all ON %I FOR ALL TO anon, authenticated USING (true) WITH CHECK (true)',
+            t
+        );
+        EXECUTE format('GRANT ALL ON TABLE %I TO anon, authenticated', t);
+    END LOOP;
+END $$;

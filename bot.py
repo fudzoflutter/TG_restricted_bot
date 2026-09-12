@@ -95,12 +95,22 @@ def kb(
     style: Optional[str] = None,
     icon: Optional[str] = None,
 ) -> KeyboardButton:
+    return KeyboardButton(text=text)
+
+
+def ib(
+    text: str,
+    callback_data: Optional[str] = None,
+    url: Optional[str] = None,
+    style: Optional[str] = None,
+    icon: Optional[str] = None,
+) -> InlineKeyboardButton:
     kwargs: Dict[str, Any] = {"text": text}
-    if style:
-        kwargs["style"] = str(style)
-    if icon and _use_button_icons:
-        kwargs["icon_custom_emoji_id"] = icon
-    return KeyboardButton(**kwargs)
+    if callback_data:
+        kwargs["callback_data"] = callback_data
+    if url:
+        kwargs["url"] = url
+    return InlineKeyboardButton(**kwargs)
 
 
 def get_main_menu_keyboard(lang: str = "ru") -> ReplyKeyboardMarkup:
@@ -229,25 +239,6 @@ async def dispatch_media_message(
     if content_type in ("sticker", ContentType.STICKER):
         return await send_to_owner(owner_id, chat, bot.send_sticker, sticker=media)
     return None
-
-
-def ib(
-    text: str,
-    callback_data: Optional[str] = None,
-    url: Optional[str] = None,
-    style: Optional[str] = None,
-    icon: Optional[str] = None,
-) -> InlineKeyboardButton:
-    kwargs: Dict[str, Any] = {"text": text}
-    if callback_data:
-        kwargs["callback_data"] = callback_data
-    if url:
-        kwargs["url"] = url
-    if style:
-        kwargs["style"] = str(style)
-    if icon and _use_button_icons:
-        kwargs["icon_custom_emoji_id"] = icon
-    return InlineKeyboardButton(**kwargs)
 
 
 def get_settings_keyboard(st: Dict[str, Any]) -> InlineKeyboardMarkup:
@@ -381,10 +372,7 @@ def _strip_markup_icons(markup: Any) -> Any:
         rows = []
         for row in markup.keyboard:
             rows.append([
-                KeyboardButton(
-                    text=btn.text,
-                    **({"style": btn.style} if getattr(btn, "style", None) else {}),
-                )
+                KeyboardButton(text=btn.text)
                 for btn in row
             ])
         return ReplyKeyboardMarkup(
@@ -402,8 +390,6 @@ def _strip_markup_icons(markup: Any) -> Any:
                     kwargs["callback_data"] = btn.callback_data
                 if btn.url:
                     kwargs["url"] = btn.url
-                if getattr(btn, "style", None):
-                    kwargs["style"] = btn.style
                 new_row.append(InlineKeyboardButton(**kwargs))
             rows.append(new_row)
         return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -422,6 +408,14 @@ async def send_with_markup_fallback(send_func, **kwargs):
                 return await send_func(**kwargs)
             except TelegramBadRequest:
                 pass
+        if "style" in err:
+            if kwargs.get("reply_markup") is not None:
+                kwargs["reply_markup"] = _strip_markup_icons(kwargs["reply_markup"])
+            try:
+                return await send_func(**kwargs)
+            except TelegramBadRequest:
+                kwargs.pop("reply_markup", None)
+                return await send_func(**kwargs)
         if any(tok in err for tok in ("emoji", "icon", "custom_emoji")):
             _use_button_icons = False
             if kwargs.get("reply_markup") is not None:
