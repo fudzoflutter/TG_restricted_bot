@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from typing import Any, Awaitable, Callable, Dict, Optional
 
 from aiogram import BaseMiddleware, Bot, Dispatcher, F
@@ -958,6 +959,30 @@ async def on_business_messages_deleted(event: BusinessMessagesDeleted):
     await asyncio.gather(*[_one(mid) for mid in event.message_ids])
 
 
+_health_server = None
+
+
+async def start_healthcheck() -> None:
+    global _health_server
+    port = os.getenv("PORT")
+    if not port:
+        return
+
+    async def handle(reader, writer):
+        try:
+            await reader.read(1024)
+            writer.write(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n"
+                b"Content-Length: 2\r\nConnection: close\r\n\r\nok"
+            )
+            await writer.drain()
+        finally:
+            writer.close()
+
+    _health_server = await asyncio.start_server(handle, "0.0.0.0", int(port))
+    logging.info("healthcheck listening on 0.0.0.0:%s", port)
+
+
 async def main():
     global BOT_USERNAME
     if not config.ADMIN_ID:
@@ -966,6 +991,7 @@ async def main():
     await db.init_db()
     me = await bot.get_me()
     BOT_USERNAME = me.username or ""
+    await start_healthcheck()
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(
         bot,
