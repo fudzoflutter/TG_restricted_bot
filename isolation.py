@@ -50,6 +50,13 @@ def is_protected_media(msg) -> bool:
     return bool(getattr(msg, "has_protected_content", False))
 
 
+def is_view_once_media(msg) -> bool:
+    """One-time (view-once) media: Telegram hides the file behind a spoiler
+    and it disappears after being viewed, so it must be grabbed immediately.
+    Regular photos/videos are NOT view-once and should never be auto-sent."""
+    return bool(getattr(msg, "has_media_spoiler", False))
+
+
 def strip_tg_emoji(html: str) -> str:
     return _TG_EMOJI.sub(r"\1", html or "")
 

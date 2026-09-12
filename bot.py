@@ -4,7 +4,7 @@ import os
 import time
 from datetime import datetime, timezone
 from html import escape
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 from aiogram import BaseMiddleware, Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
@@ -102,6 +102,30 @@ REQUIRE_PREMIUM = False
 SHOW_PREMIUM_BUTTON = False
 # Runtime override (DB-backed, toggled live from /admin) — do not edit here.
 _premium_visible: bool = False
+
+# --- [6] NOTIFICATION CARD — deleted / edited / saved-media messages -------
+# Every notification is ONE compact card. Edit the pieces below:
+
+# Line icons (plain emoji; shown when _USE_TEXT_CUSTOM_EMOJI = False):
+IC_WHO  = "👤"   # sender line      👤 Kim: @username
+IC_ID   = "🆔"   # user id line     🆔 ID: 123456789
+IC_TEXT = "📝"   # old/new text     📝 Eski: ...
+IC_MSG  = "💬"   # deleted text     💬 Matn: ...
+IC_CAP  = "💬"   # caption line     💬 Izoh: ...
+IC_CHAT = "💬"   # chat line        💬 Chat: Alijon
+IC_TIME = "🕒"   # time line        🕒 Vaqt: 12:50:34
+
+# Premium custom-emoji ids for the WHO / CHAT / TIME icons (used only when
+# _USE_TEXT_CUSTOM_EMOJI = True — see [3] above).
+CARD_EMOJI = {
+    "who":  E_WAVE,   # 5312241539987038474
+    "chat": E_CHART,  # 5377312262123803976
+    "time": E_LANG,   # 5413704112220949842
+}
+
+CARD_SHOW_CHAT = True           # show the 💬 Chat: line
+CARD_SHOW_TIME = True           # show the 🕒 Vaqt: line
+CARD_TIME_FORMAT = "%H:%M:%S"   # strftime format: https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
 # ╚═════════════════════════ END OF CUSTOMIZATION ═════════════════════════╝
 
 
@@ -242,34 +266,6 @@ def stats_contact_keyboard(lang: str) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=False)
 
 
-def format_sender_header(cached: Any, settings: Dict[str, Any], lang: str) -> str:
-    lines = []
-    fname = cached.get("sender_first_name", "")
-    lname = cached.get("sender_last_name", "")
-    uname = cached.get("sender_username", "")
-    uid = cached.get("sender_id", 0)
-
-    if (settings["show_first_name"] and fname) or (settings["show_last_name"] and lname):
-        name_parts = []
-        if settings["show_first_name"] and fname:
-            name_parts.append(fname)
-        if settings["show_last_name"] and lname:
-            name_parts.append(lname)
-        label = t(lang, "btn_show_fname")
-        lines.append(f"👤 <b>{label}:</b> {' '.join(name_parts)}")
-
-    if settings["show_username"] and uname:
-        lines.append(f"🔗 <b>Username:</b> @{uname}")
-
-    if settings["show_user_id"] and uid:
-        lines.append(f"🆔 <b>ID:</b> <code>{uid}</code>")
-
-    if not lines:
-        lines.append(f"🆔 <b>ID:</b> <code>{uid}</code>")
-
-    return "\n".join(lines)
-
-
 def make_topic_title(chat: Any) -> str:
     if chat.title:
         return f"{chat.title[:100]} [{chat.id}]"
@@ -278,6 +274,81 @@ def make_topic_title(chat: Any) -> str:
         parts.append(f"(@{chat.username})")
     full_name = " ".join(parts)
     return f"{full_name[:100]} [{chat.id}]" if full_name else f"User [{chat.id}]"
+
+
+# ---------------------------------------------------------------------------
+# 🧾 NOTIFICATION CARD BUILDER (see customization section [6] above)
+# ---------------------------------------------------------------------------
+def _card_value(lang: str, value: Optional[str]) -> str:
+    """None → 'not cached', '' → 'empty', otherwise escape raw user text."""
+    if value is None:
+        return t(lang, "not_cached")
+    if not value:
+        return t(lang, "empty")
+    return escape(value)
+
+
+def _card_name(author: Dict[str, Any], st: Dict[str, Any]) -> str:
+    uname = (author.get("sender_username") or "").strip()
+    fname = (author.get("sender_first_name") or "").strip()
+    lname = (author.get("sender_last_name") or "").strip()
+    parts = []
+    if st.get("show_first_name") and fname:
+        parts.append(fname)
+    if st.get("show_last_name") and lname:
+        parts.append(lname)
+    if st.get("show_username") and uname:
+        return f"@{uname}" + (f" ({' '.join(parts)})" if parts else "")
+    if parts:
+        return " ".join(parts)
+    return f"ID {author.get('sender_id') or '?'}"
+
+
+def build_event_card(
+    lang: str,
+    title: str,
+    author: Dict[str, Any],
+    st: Dict[str, Any],
+    lines: Optional[List[Tuple[str, str, Optional[str]]]] = None,
+    chat: Any = None,
+    when: Optional[datetime] = None,
+) -> str:
+    """Assemble one notification card:
+
+        <b>{title}</b>
+        👤 Kim: @username
+        📝 Eski: ...
+        💬 Chat: Alijon
+        🕒 Vaqt: 12:50:34
+
+    `lines` = [(icon, label, value), ...]; value None → 'not cached',
+    '' → 'empty'. `when` defaults to the current UTC time — Telegram's
+    delete events carry no timestamp.
+    """
+    parts: List[str] = [f"<b>{title}</b>"]
+    parts.append(
+        f"{ae(CARD_EMOJI['who'], IC_WHO)} <b>{t(lang, 'card_who')}</b> {escape(_card_name(author, st))}"
+    )
+    uid = author.get("sender_id") or 0
+    if st.get("show_user_id") and uid:
+        parts.append(f"{IC_ID} <b>ID:</b> <code>{uid}</code>")
+    for icon, label, value in lines or []:
+        parts.append(f"{icon} <b>{label}</b> {_card_value(lang, value)}")
+    if CARD_SHOW_CHAT and chat is not None:
+        cname = getattr(chat, "title", None) or getattr(chat, "first_name", None)
+        if not cname:
+            cuname = getattr(chat, "username", None)
+            cname = f"@{cuname}" if cuname else str(getattr(chat, "id", ""))
+        parts.append(
+            f"{ae(CARD_EMOJI['chat'], IC_CHAT)} <b>{t(lang, 'card_chat')}</b> {escape(str(cname))}"
+        )
+    if CARD_SHOW_TIME:
+        when = when or datetime.now(timezone.utc)
+        parts.append(
+            f"{ae(CARD_EMOJI['time'], IC_TIME)} <b>{t(lang, 'card_time')}</b> "
+            f"{when.strftime(CARD_TIME_FORMAT)}"
+        )
+    return "\n".join(parts)
 
 
 async def get_or_create_pm_thread(owner_id: int, business_chat: Any) -> Optional[int]:
@@ -1494,9 +1565,15 @@ async def _deliver_protected_media(
         "sender_username": msg.from_user.username if msg.from_user else "",
         "sender_id": msg.from_user.id if msg.from_user else 0,
     }
-    caption = f"{t(lang, 'saved_media_title')}\n{format_sender_header(author_data, st, lang)}"
-    if msg.caption:
-        caption += f"\n💬 <b>{t(lang, 'caption_label')}</b> {msg.caption}"
+    caption = build_event_card(
+        lang,
+        t(lang, "saved_media_title"),
+        author_data,
+        st,
+        lines=[(IC_CAP, t(lang, "card_caption"), msg.caption)] if msg.caption else [],
+        chat=msg.chat,
+        when=msg.date,
+    )
     try:
         sent = await dispatch_media_message(
             owner_id, msg.chat, content_type, file_id, caption, local_path=local_path
@@ -1507,11 +1584,16 @@ async def _deliver_protected_media(
         logging.error(f"protected media deliver error: {e}")
 
 
-async def persist_business_media(owner_id: int, msg: Message):
-    """Download media immediately so view-once / deletes can still be recovered."""
+async def persist_business_media(owner_id: int, msg: Message) -> bool:
+    """Download media immediately so view-once / deletes can still be recovered.
+
+    The owner's feed must stay clean: ONLY one-time (view-once) media is sent
+    right away. Regular photos/videos stay in the cache and are delivered only
+    if the contact deletes or edits the message. Returns True when the media
+    was already pushed to the owner."""
     content_type, file_id = db.extract_media(msg)
     if not file_id:
-        return
+        return False
     dest = isolation.owner_media_path(owner_id, msg.chat.id, msg.message_id)
     dest.parent.mkdir(parents=True, exist_ok=True)
     local_path = None
@@ -1532,8 +1614,10 @@ async def persist_business_media(owner_id: int, msg: Message):
         await db.set_message_local_path(owner_id, msg.chat.id, msg.message_id, local_path)
     except Exception as e:
         logging.warning(f"media download failed owner={owner_id}: {e}")
-    if isolation.is_protected_media(msg):
+    if isolation.is_view_once_media(msg):
         await _deliver_protected_media(owner_id, msg, file_id, content_type, local_path=local_path)
+        return True
+    return False
 
 
 @dp.business_message()
@@ -1561,6 +1645,11 @@ async def on_business_message(msg: Message):
     if st["save_media_mode"] == "trigger" and user_text not in SAVE_TRIGGERS:
         return
 
+    # View-once media is already delivered the moment it arrives — replying
+    # again would just duplicate the item in the owner's saved feed.
+    if isolation.is_view_once_media(replied):
+        return
+
     _, rfile = db.extract_media(replied)
     if not rfile:
         return
@@ -1571,9 +1660,15 @@ async def on_business_message(msg: Message):
         "sender_username": replied.from_user.username if replied.from_user else "",
         "sender_id": replied.from_user.id if replied.from_user else 0,
     }
-    caption = f"{t(lang, 'saved_media_title')}\n{format_sender_header(author_data, st, lang)}"
-    if replied.caption:
-        caption += f"\n💬 <b>{t(lang, 'caption_label')}</b> {replied.caption}"
+    caption = build_event_card(
+        lang,
+        t(lang, "saved_media_title"),
+        author_data,
+        st,
+        lines=[(IC_CAP, t(lang, "card_caption"), replied.caption)] if replied.caption else [],
+        chat=msg.chat,
+        when=replied.date,
+    )
     try:
         sent = await dispatch_media_message(
             owner_id, msg.chat, replied.content_type, rfile, caption
@@ -1611,12 +1706,17 @@ async def on_edited_business_message(msg: Message):
             "sender_id": msg.from_user.id if msg.from_user else 0,
         }
         title = t(lang, "edit_caption_title") if (msg.photo or msg.video or msg.document) else t(lang, "edit_text_title")
-        old_val = old_text if old_text is not None else t(lang, "not_cached")
-        body = (
-            f"{title}\n"
-            f"{format_sender_header(author_data, st, lang)}\n\n"
-            f"🔴 <b>{t(lang, 'old_label')}</b>\n{old_val if old_val else t(lang, 'empty')}\n\n"
-            f"🟢 <b>{t(lang, 'new_label')}</b>\n{new_text if new_text else t(lang, 'empty')}"
+        body = build_event_card(
+            lang,
+            title,
+            author_data,
+            st,
+            lines=[
+                (IC_TEXT, t(lang, "card_old"), old_text if old_text is not None else None),
+                (IC_TEXT, t(lang, "card_new"), new_text),
+            ],
+            chat=msg.chat,
+            when=msg.edit_date or msg.date,
         )
         try:
             await send_to_owner(owner_id, msg.chat, bot.send_message, text=body)
@@ -1624,8 +1724,10 @@ async def on_edited_business_message(msg: Message):
             logging.error(f"Error sending edit notification: {e}")
 
     await db.cache_message(msg, owner_id)
+    # Re-persist only when the media itself changed — a caption edit must not
+    # re-download the file or re-push (already-delivered) view-once media.
     _, file_id = db.extract_media(msg)
-    if file_id:
+    if file_id and (not cached or cached.get("file_id") != file_id):
         asyncio.create_task(persist_business_media(owner_id, msg))
 
 
@@ -1647,17 +1749,20 @@ async def on_business_messages_deleted(event: BusinessMessagesDeleted):
         # Owners never get notified about deleting their OWN messages.
         if cached.get("sender_id") == owner_id:
             return
-        sender_hdr = format_sender_header(cached, st, lang)
         content_type = cached["content_type"]
         file_id = cached["file_id"]
         text_content = cached["text_content"]
         try:
             has_media = bool(file_id or cached.get("local_path"))
             if content_type == "text" or not has_media:
-                body = (
-                    f"{t(lang, 'del_text_title')}\n"
-                    f"{sender_hdr}\n\n"
-                    f"💬 <b>{t(lang, 'content_label')}</b>\n{text_content if text_content else t(lang, 'empty')}"
+                body = build_event_card(
+                    lang,
+                    t(lang, "del_text_title"),
+                    cached,
+                    st,
+                    lines=[(IC_MSG, t(lang, "card_text"), text_content)],
+                    chat=event.chat,
+                    when=datetime.now(timezone.utc),
                 )
                 await send_to_owner(owner_id, event.chat, bot.send_message, text=body)
                 return
@@ -1670,7 +1775,14 @@ async def on_business_messages_deleted(event: BusinessMessagesDeleted):
                 caption,
                 local_path=cached.get("local_path"),
             )
-            info = f"{t(lang, 'del_media_title')}\n{sender_hdr}"
+            info = build_event_card(
+                lang,
+                t(lang, "del_media_title"),
+                cached,
+                st,
+                chat=event.chat,
+                when=datetime.now(timezone.utc),
+            )
             if sent:
                 await sent.reply(info)
             else:

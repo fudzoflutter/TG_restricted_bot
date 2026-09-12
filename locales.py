@@ -10,7 +10,9 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "save_mode_title": (
             "📥 <b>Режим сохранения медиа по ответу (Reply):</b>\n\n"
             "• <b>По триггеру:</b> сохранение по триггерам (<code>!</code>, <code>+</code>, <code>save</code>, <code>.</code>)\n"
-            "• <b>Любой ответ:</b> сохранение на любой ваш ответ"
+            "• <b>Любой ответ:</b> сохранение на любой ваш ответ\n\n"
+            "⚠️ Обычные фото и видео не сохраняются автоматически — только при удалении/редактировании. "
+            "Одноразовые (скрытые) медиа доставляются сразу."
         ),
         "btn_header":    "👤 Заголовок сообщения",
         "btn_threads":   "🧵 Темы в ЛС",
@@ -25,11 +27,11 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "btn_show_id":       "User ID",
         "btn_mode_trigger":  "🎯 По триггеру",
         "btn_mode_all":      "🔄 На любой ответ",
-        "del_text_title":    "🗑 <b>Удалено текстовое сообщение</b>",
-        "del_media_title":   "🗑 <b>Удалено медиасообщение</b>",
-        "edit_text_title":   "✏️ <b>Сообщение отредактировано</b>",
-        "edit_caption_title":"✏️ <b>Подпись отредактирована</b>",
-        "saved_media_title": "📥 <b>Медиафайл сохранен</b>",
+        "del_text_title":    "🗑 Сообщение удалено",
+        "del_media_title":   "🗑 Медиа удалено",
+        "edit_text_title":   "✏️ Сообщение изменено",
+        "edit_caption_title":"✏️ Подпись изменена",
+        "saved_media_title": "📥 Медиа сохранено",
         "sender_label":      "От кого:",
         "content_label":     "Содержимое:",
         "old_label":         "Было:",
@@ -37,6 +39,14 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "caption_label":     "Подпись:",
         "empty":             "<i>[Пусто / Без текста]</i>",
         "not_cached":        "<i>[Не было сохранено в кэше]</i>",
+        # --- notification card labels (see bot.py customization [6]) ---
+        "card_who":     "Кто:",
+        "card_chat":    "Чат:",
+        "card_time":    "Время:",
+        "card_old":     "Было:",
+        "card_new":     "Стало:",
+        "card_text":    "Текст:",
+        "card_caption": "Подпись:",
         "access_denied":    "⛔️ <b>Нет доступа.</b>\nБот работает только по разрешению администратора.",
         "not_allowed_connect": "⛔️ Подключение отклонено: нет разрешения администратора.",
         "admin_only":       "⛔️ Только для администратора.",
@@ -76,7 +86,9 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "save_mode_title": (
             "📥 <b>Media Save Mode (Reply):</b>\n\n"
             "• <b>By trigger:</b> saves on triggers (<code>!</code>, <code>+</code>, <code>save</code>, <code>.</code>)\n"
-            "• <b>Any reply:</b> saves on any text reply"
+            "• <b>Any reply:</b> saves on any text reply\n\n"
+            "⚠️ Regular photos and videos are NOT saved automatically — only when deleted/edited. "
+            "One-time (hidden) media is delivered instantly."
         ),
         "btn_header":    "👤 Message Header",
         "btn_threads":   "🧵 PM Topics",
@@ -91,11 +103,11 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "btn_show_id":       "User ID",
         "btn_mode_trigger":  "🎯 By trigger",
         "btn_mode_all":      "🔄 On any reply",
-        "del_text_title":    "🗑 <b>Text message deleted</b>",
-        "del_media_title":   "🗑 <b>Media message deleted</b>",
-        "edit_text_title":   "✏️ <b>Message edited</b>",
-        "edit_caption_title":"✏️ <b>Caption edited</b>",
-        "saved_media_title": "📥 <b>Media saved</b>",
+        "del_text_title":    "🗑 Message deleted",
+        "del_media_title":   "🗑 Media deleted",
+        "edit_text_title":   "✏️ Message edited",
+        "edit_caption_title":"✏️ Caption edited",
+        "saved_media_title": "📥 Media saved",
         "sender_label":      "Sender:",
         "content_label":     "Content:",
         "old_label":         "Old:",
@@ -103,6 +115,14 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "caption_label":     "Caption:",
         "empty":             "<i>[Empty / No text]</i>",
         "not_cached":        "<i>[Not cached prior to edit]</i>",
+        # --- notification card labels (see bot.py customization [6]) ---
+        "card_who":     "Who:",
+        "card_chat":    "Chat:",
+        "card_time":    "Time:",
+        "card_old":     "Old:",
+        "card_new":     "New:",
+        "card_text":    "Text:",
+        "card_caption": "Caption:",
         "access_denied":    "⛔️ <b>No access.</b>\nOnly users approved by the admin can use this bot.",
         "not_allowed_connect": "⛔️ Connection rejected: admin has not allowed you.",
         "admin_only":       "⛔️ Admin only.",
@@ -142,7 +162,9 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "save_mode_title": (
             "📥 <b>Mediani saqlash rejimi (Reply):</b>\n\n"
             "• <b>Trigger bilan:</b> triggerlar bilan saqlash (<code>!</code>, <code>+</code>, <code>save</code>, <code>.</code>)\n"
-            "• <b>Har qanday javob:</b> har qanday javobda saqlash"
+            "• <b>Har qanday javob:</b> har qanday javobda saqlash\n\n"
+            "⚠️ Oddiy rasmlar va videolar avtomatik saqlanmaydi — faqat o'chirilganda/tahrirlanganda. "
+            "Bir martalik (yashirilgan) media darhol yetkaziladi."
         ),
         "btn_header":    "👤 Xabar sarlavhasi",
         "btn_threads":   "🧵 Shaxsiy mavzular",
@@ -157,11 +179,11 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "btn_show_id":       "User ID",
         "btn_mode_trigger":  "🎯 Trigger bilan",
         "btn_mode_all":      "🔄 Har qanday javobda",
-        "del_text_title":    "🗑 <b>Matnli xabar o'chirildi</b>",
-        "del_media_title":   "🗑 <b>Media xabar o'chirildi</b>",
-        "edit_text_title":   "✏️ <b>Xabar tahrirlandi</b>",
-        "edit_caption_title":"✏️ <b>Sarlavha tahrirlandi</b>",
-        "saved_media_title": "📥 <b>Media saqlandi</b>",
+        "del_text_title":    "🗑 Xabar o'chirildi",
+        "del_media_title":   "🗑 Media o'chirildi",
+        "edit_text_title":   "✏️ Xabar tahrirlandi",
+        "edit_caption_title":"✏️ Izoh tahrirlandi",
+        "saved_media_title": "📥 Media saqlandi",
         "sender_label":      "Kimdan:",
         "content_label":     "Mazmun:",
         "old_label":         "Avval:",
@@ -169,6 +191,14 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "caption_label":     "Sarlavha:",
         "empty":             "<i>[Bo'sh / Matn yo'q]</i>",
         "not_cached":        "<i>[Keshda saqlanmagan]</i>",
+        # --- notification card labels (see bot.py customization [6]) ---
+        "card_who":     "Kim:",
+        "card_chat":    "Chat:",
+        "card_time":    "Vaqt:",
+        "card_old":     "Eski:",
+        "card_new":     "Yangi:",
+        "card_text":    "Matn:",
+        "card_caption": "Izoh:",
         "access_denied":    "⛔️ <b>Ruxsat yo'q.</b>\nBot faqat admin ruxsat berganlar uchun ishlaydi.",
         "not_allowed_connect": "⛔️ Ulanish rad etildi: admin ruxsat bermagan.",
         "admin_only":       "⛔️ Faqat admin uchun.",
