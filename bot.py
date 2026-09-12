@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import os
+from datetime import datetime, timezone
+from html import escape
 from typing import Any, Awaitable, Callable, Dict, Optional
 
 from aiogram import BaseMiddleware, Bot, Dispatcher, F
@@ -58,7 +60,9 @@ E_CHART = "5377312262123803976"
 E_LANG = "5413704112220949842"
 E_SAVE = "5271600761883117622"
 
-_use_button_icons = True
+# Button icon_custom_emoji_id needs the bot OWNER to have Telegram Premium
+# (same as <tg-emoji> in texts). Keep False unless the owner account is Premium.
+_use_button_icons = False
 
 
 # Telegram currently rejects <tg-emoji> entities sent by this bot with
@@ -104,7 +108,12 @@ def kb(
     style: Optional[str] = None,
     icon: Optional[str] = None,
 ) -> KeyboardButton:
-    return KeyboardButton(text=text)
+    kwargs: Dict[str, Any] = {"text": text}
+    if style:
+        kwargs["style"] = style
+    if icon and _use_button_icons:
+        kwargs["icon_custom_emoji_id"] = icon
+    return KeyboardButton(**kwargs)
 
 
 def ib(
@@ -119,29 +128,32 @@ def ib(
         kwargs["callback_data"] = callback_data
     if url:
         kwargs["url"] = url
+    if style:
+        kwargs["style"] = style
+    if icon and _use_button_icons:
+        kwargs["icon_custom_emoji_id"] = icon
     return InlineKeyboardButton(**kwargs)
 
 
-def get_main_menu_keyboard(lang: str = "ru") -> ReplyKeyboardMarkup:
+def _menu_labels(lang: str) -> Dict[str, str]:
     if lang == "en":
-        rows = [
-            [kb("Connect", STYLE_SUCCESS, E_CHECK), kb("How does the bot work?", STYLE_PRIMARY, E_SPY)],
-            [kb("Statistics", STYLE_PRIMARY, E_CHART), kb("Settings", STYLE_PRIMARY, E_GEAR)],
-            [kb("Language", icon=E_LANG), kb("Save Mode", STYLE_PRIMARY, E_SAVE)],
-        ]
-    elif lang == "uz":
-        rows = [
-            [kb("Ulash", STYLE_SUCCESS, E_CHECK), kb("Bot qanday ishlaydi?", STYLE_PRIMARY, E_SPY)],
-            [kb("Statistika", STYLE_PRIMARY, E_CHART), kb("Sozlamalar", STYLE_PRIMARY, E_GEAR)],
-            [kb("Til", icon=E_LANG), kb("Saqlash rejimi", STYLE_PRIMARY, E_SAVE)],
-        ]
-    else:
-        rows = [
-            [kb("Подключить", STYLE_SUCCESS, E_CHECK), kb("Как работает бот?", STYLE_PRIMARY, E_SPY)],
-            [kb("Статистика", STYLE_PRIMARY, E_CHART), kb("Настройки", STYLE_PRIMARY, E_GEAR)],
-            [kb("Язык", icon=E_LANG), kb("Режим сохр.", STYLE_PRIMARY, E_SAVE)],
-        ]
-    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=False)
+        return {"stats": "📊 Statistics", "how": "🕵️ How does the bot work?", "connect": "🟢 Connect"}
+    if lang == "uz":
+        return {"stats": "📊 Statistika", "how": "🕵️ Bot qanday ishlaydi?", "connect": "🟢 Ulash"}
+    return {"stats": "📊 Статистика", "how": "🕵️ Как работает бот?", "connect": "🟢 Подключить"}
+
+
+_LABELS = [_menu_labels(l) for l in ("en", "uz", "ru")]
+
+
+def get_main_menu_keyboard(lang: str = "ru") -> ReplyKeyboardMarkup:
+    """Zenly-style two-button menu (Statistics / How it works)."""
+    lb = _menu_labels(lang)
+    rows = [
+        [kb(lb["stats"], STYLE_PRIMARY, E_CHART)],
+        [kb(lb["how"], STYLE_PRIMARY, E_SPY)],
+    ]
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True, is_persistent=True)
 
 
 def format_sender_header(cached: Any, settings: Dict[str, Any], lang: str) -> str:
@@ -196,6 +208,12 @@ async def get_or_create_pm_thread(owner_id: int, business_chat: Any) -> Optional
         return topic.message_thread_id
     except TelegramBadRequest as e:
         logging.warning(f"Failed to create forum topic: {e}")
+        if "not a forum" in str(e).lower():
+            # Owner's PM has no topics enabled — disable once instead of retrying per message.
+            try:
+                await db.update_user_setting(owner_id, "threaded_mode", False)
+            except Exception:
+                pass
         return None
 
 
@@ -315,13 +333,19 @@ def get_lang_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
-def connect_keyboard(prefer_https: bool = False) -> InlineKeyboardMarkup:
+def connect_keyboard(
+    prefer_https: bool = False,
+    with_how: bool = False,
+    lang: str = "ru",
+) -> InlineKeyboardMarkup:
     rows = []
     profile = isolation.connect_profile_url() if not prefer_https else "https://t.me/settings"
-    rows.append([ib("Connect", url=profile, style=STYLE_SUCCESS, icon=E_CHECK)])
+    rows.append([ib(_menu_labels(lang)["connect"], url=profile, style=STYLE_SUCCESS, icon=E_CHECK)])
     biz = isolation.connect_business_url(BOT_USERNAME)
     if biz:
         rows.append([ib("Chatbots", url=biz, style=STYLE_PRIMARY, icon=E_GEAR)])
+    if with_how:
+        rows.append([ib(_menu_labels(lang)["how"], callback_data="how_it_works", style=STYLE_PRIMARY, icon=E_SPY)])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -341,38 +365,36 @@ def welcome_caption(lang: str) -> str:
     bot_mention = f"@{BOT_USERNAME}" if BOT_USERNAME else "bot"
     if lang == "en":
         return (
-            f"{ae(E_WAVE, '👋')} Welcome!\n\n"
-            f"{ae(E_SPY, '🕵️')} I catch deleted and edited messages\n"
-            "and save photos, videos, voice, video notes and view-once media.\n\n"
-            f"{ae(E_SHIELD, '🔒')} Each user only sees their own chats.\n\n"
-            "Connect (no Premium, no API hash):\n"
-            "1\ufe0f\u20e3 Tap Connect → Profile Edit (`tg://settings/edit`)\n"
-            "2\ufe0f\u20e3 Chatbots / Chat Automation\n"
-            f"3\ufe0f\u20e3 Add {bot_mention}\n\n"
-            f"{ae(E_FIRE, '🛠')} Tools are on the keyboard below."
+            f"{ae(E_WAVE, '👋')} <b>Welcome!</b>\n\n"
+            f"{ae(E_SPY, '🕵️')} I catch your contacts' <b>deleted</b> and <b>edited</b> messages "
+            "and save <b>one-time</b> photos, videos, voice and video notes — even when you're offline.\n\n"
+            f"{ae(E_SHIELD, '🔒')} I work only with <b>your permission</b> and never touch your data without consent.\n\n"
+            f"<b>{ae(E_FIRE, '🛠')} Connect in 20 seconds:</b>\n"
+            "<blockquote>1️⃣ Tap <b>Connect</b> below ❞\n"
+            "2️⃣ Open <b>Chatbots</b> and type "
+            f"{bot_mention}\n"
+            "3️⃣ Tap <b>Add</b> — done ✅</blockquote>"
         )
     if lang == "uz":
         return (
-            f"{ae(E_WAVE, '👋')} Xush kelibsiz!\n\n"
-            f"{ae(E_SPY, '🕵️')} O'chirilgan va tahrirlangan xabarlarni ushlayman,\n"
-            "rasm, video, ovoz, video-xabar va bir martalik medialarni saqlayman.\n\n"
-            f"{ae(E_SHIELD, '🔒')} Har bir foydalanuvchi faqat o'z chatlarini ko'radi.\n\n"
-            "Ulash (Premium shart emas, API hash yo'q):\n"
-            "1\ufe0f\u20e3 Connect — profil tahrirlash (Edit)\n"
-            "2\ufe0f\u20e3 Chatbots / Chat Automation\n"
-            f"3\ufe0f\u20e3 {bot_mention} ni qo'shing\n\n"
-            f"{ae(E_FIRE, '🛠')} Qurollar pastda."
+            f"{ae(E_WAVE, '👋')} <b>Xush kelibsiz!</b>\n\n"
+            f"{ae(E_SPY, '🕵️')} Kontaktlaringizning <b>o'chirilgan</b> va <b>tahrirlangan</b> xabarlarini ushlayman, "
+            "<b>bir martalik</b> rasm, video, ovoz va video-xabarlarni saqlayman — oflayn bo'lsangiz ham.\n\n"
+            f"{ae(E_SHIELD, '🔒')} Faqat <b>sizning ruxsatingiz bilan</b> ishlayman, ma'lumotlaringizga tegmayman.\n\n"
+            f"<b>{ae(E_FIRE, '🛠')} 20 sekundda ulash:</b>\n"
+            "<blockquote>1️⃣ Pastdagi <b>Ulash</b> tugmasini bosing ❞\n"
+            f"2️⃣ <b>Chatbots</b> bo'limida {bot_mention} yozing\n"
+            "3️⃣ <b>Qo'shish</b> — tayyor ✅</blockquote>"
         )
     return (
-        f"{ae(E_WAVE, '👋')} Добро пожаловать!\n\n"
-        f"{ae(E_SPY, '🕵️')} Ловлю удалённые и отредактированные сообщения,\n"
-        "фото, видео, голосовые, кружки и одноразовые медиа.\n\n"
-        f"{ae(E_SHIELD, '🔒')} Каждый пользователь видит только свои чаты.\n\n"
-        "Подключение (Premium не нужен, API hash не нужен):\n"
-        "1\ufe0f\u20e3 Connect — редактирование профиля (Edit)\n"
-        "2\ufe0f\u20e3 Chatbots / Chat Automation\n"
-        f"3\ufe0f\u20e3 Добавьте {bot_mention}\n\n"
-        f"{ae(E_FIRE, '🛠')} Инструменты внизу."
+        f"{ae(E_WAVE, '👋')} <b>Добро пожаловать!</b>\n\n"
+        f"{ae(E_SPY, '🕵️')} Ловлю <b>удалённые</b> и <b>отредактированные</b> сообщения ваших контактов "
+        "и сохраняю <b>одноразовые</b> фото, видео, голосовые и кружки — даже когда вы офлайн.\n\n"
+        f"{ae(E_SHIELD, '🔒')} Работаю только с <b>вашего разрешения</b> и не трогаю данные без согласия.\n\n"
+        f"<b>{ae(E_FIRE, '🛠')} Подключение за 20 секунд:</b>\n"
+        "<blockquote>1️⃣ Нажмите <b>Подключить</b> ниже ❞\n"
+        f"2️⃣ Откройте <b>Chatbots</b> и введите {bot_mention}\n"
+        "3️⃣ Нажмите <b>Добавить</b> — готово ✅</blockquote>"
     )
 
 
@@ -457,7 +479,7 @@ async def send_with_markup_fallback(send_func, **kwargs):
 
 
 async def send_welcome(bot_instance, chat_id: int, lang: str):
-    markup = connect_keyboard()
+    markup = connect_keyboard(with_how=True, lang=lang)
     caption = welcome_caption(lang)
     photo_path = "mooodypic.jpg"
     if os.path.isfile(photo_path):
@@ -475,7 +497,7 @@ async def send_welcome(bot_instance, chat_id: int, lang: str):
         bot_instance.send_message,
         chat_id=chat_id,
         text=caption,
-        reply_markup=connect_keyboard(),
+        reply_markup=connect_keyboard(with_how=True, lang=lang),
     )
 
 
@@ -539,11 +561,11 @@ async def cmd_start(msg: Message):
 
     await send_welcome(bot, msg.chat.id, lang)
     if lang == "en":
-        tools_txt = f"{ae(E_GEAR, '🛠')} The tools below are always available."
+        tools_txt = f"{ae(E_GEAR, '👇')} The tools below are always available."
     elif lang == "uz":
-        tools_txt = f"{ae(E_GEAR, '🛠')} Quyidagi qurollar doim mavjud."
+        tools_txt = f"{ae(E_GEAR, '👇')} Quyidagi qurollar doim mavjud."
     else:
-        tools_txt = f"{ae(E_GEAR, '🛠')} Инструменты ниже всегда доступны."
+        tools_txt = f"{ae(E_GEAR, '👇')} Инструменты ниже всегда доступны."
     await send_with_markup_fallback(
         msg.answer, text=tools_txt, reply_markup=get_main_menu_keyboard(lang),
     )
@@ -621,9 +643,9 @@ async def cmd_menu(msg: Message):
     )
 
 
-CONNECT_TEXTS = {"Ulash", "Connect", "Подключить"}
-HOW_TEXTS = {"Bot qanday ishlaydi?", "How does the bot work?", "Как работает бот?"}
-STATS_TEXTS = {"Statistika", "Statistics", "Статистика"}
+CONNECT_TEXTS = {lb["connect"] for lb in _LABELS} | {"Connect", "Ulash", "Подключить"}
+HOW_TEXTS = {lb["how"] for lb in _LABELS} | {"How does the bot work?", "Bot qanday ishlaydi?", "Как работает бот?"}
+STATS_TEXTS = {lb["stats"] for lb in _LABELS} | {"Statistics", "Statistika", "Статистика"}
 SETTINGS_TEXTS = {"Sozlamalar", "Settings", "Настройки"}
 LANG_TEXTS = {"Til", "Language", "Язык"}
 SAVE_MODE_TEXTS = {"Saqlash rejimi", "Save Mode", "Режим сохр."}
@@ -667,15 +689,55 @@ async def btn_how(msg: Message):
 @dp.message(F.text.in_(STATS_TEXTS))
 async def btn_stats(msg: Message):
     st = await db.get_user_settings(msg.from_user.id)
+    await msg.answer(t(st["language"], "stats_choose"))
+
+
+_STATS_ORDER = [
+    ("text", "stats_text"),
+    ("sticker", "stats_stickers"),
+    ("voice", "stats_voice"),
+    ("video_note", "stats_video_notes"),
+    ("video", "stats_videos"),
+    ("photo", "stats_photos"),
+]
+_STATS_EXTRA = [
+    ("audio", "stats_audio"),
+    ("document", "stats_documents"),
+    ("animation", "stats_animations"),
+]
+
+
+def _utc_day_start_iso() -> str:
+    now = datetime.now(timezone.utc)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+
+@dp.message(F.contact)
+async def on_contact_shared(msg: Message):
+    """Zenly-style stats: user shares a contact, bot counts today's messages from them."""
+    st = await db.get_user_settings(msg.from_user.id)
     lang = st["language"]
+    contact = msg.contact
+    if not contact:
+        return
+    counts = await db.get_contact_stats(msg.from_user.id, contact.user_id, _utc_day_start_iso())
+    name = " ".join(p for p in [contact.first_name, contact.last_name] if p).strip()
+    if not name:
+        name = (
+            f"@{contact.username}" if contact.username
+            else f"+{contact.phone_number}" if contact.phone_number
+            else str(contact.user_id)
+        )
+    lines = [f"— {t(lang, loc)}: {counts.get(key, 0)}" for key, loc in _STATS_ORDER]
+    lines += [f"— {t(lang, loc)}: {counts[key]}" for key, loc in _STATS_EXTRA if counts.get(key)]
+    total = sum(counts.values())
     text = (
-        "📊 <b>Statistics</b>\n\nNo statistics yet."
-        if lang == "en" else
-        "📊 <b>Statistika</b>\n\nHozircha statistika yo'q."
-        if lang == "uz" else
-        "📊 <b>Статистика</b>\n\nПока нет данных."
+        f"📊 <b>{t(lang, 'stats_for')} {escape(name)} — {t(lang, 'stats_today')}</b>\n\n"
+        f"<blockquote>📥 <b>{t(lang, 'stats_received')}:</b>\n"
+        + "\n".join(lines)
+        + f"\n📦 {t(lang, 'stats_total')}: {total}</blockquote>"
     )
-    await msg.answer(text)
+    await send_with_markup_fallback(msg.answer, text=text)
 
 
 @dp.message(F.text.in_(SETTINGS_TEXTS))
@@ -697,6 +759,17 @@ async def btn_save_mode(msg: Message):
     await send_with_markup_fallback(
         msg.answer, text=t(st["language"], "save_mode_title"), reply_markup=get_save_mode_keyboard(st),
     )
+
+
+@dp.callback_query(F.data == "how_it_works")
+async def cb_how_it_works(call: CallbackQuery):
+    st = await db.get_user_settings(call.from_user.id)
+    lang = st["language"]
+    try:
+        await call.message.edit_text(how_it_works_text(lang), reply_markup=how_it_works_keyboard(lang))
+    except TelegramBadRequest:
+        await call.message.answer(how_it_works_text(lang), reply_markup=how_it_works_keyboard(lang))
+    await call.answer()
 
 
 @dp.callback_query(F.data == "back_start")

@@ -98,6 +98,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_owner ON messages(owner_id, chat_id, mes
 CREATE INDEX IF NOT EXISTS idx_allowed_users ON allowed_users(user_id);
 
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS local_path TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Bot uses the anon key; without these policies inserts get 401 / 42501.
 DO $$

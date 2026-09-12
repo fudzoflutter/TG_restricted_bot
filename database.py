@@ -45,6 +45,13 @@ async def init_db():
     except Exception as e:
         log.error(f"❌ Supabase connection failed: {e}")
         raise
+    try:
+        sb.table("messages").select("created_at").limit(1).execute()
+    except Exception:
+        log.warning(
+            "messages.created_at is missing — statistics will cover all time until you run in Supabase SQL editor:\n"
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();"
+        )
     if config.ADMIN_ID:
         await allow_user(config.ADMIN_ID, config.ADMIN_ID)
 
@@ -275,6 +282,38 @@ async def get_cached_message(owner_id: int, chat_id: int, message_id: int) -> Op
     except Exception as e:
         log.warning(f"get_cached_message error: {e}")
         return None
+
+
+# ---------------------------------------------------------------------------
+# STATISTICS
+# ---------------------------------------------------------------------------
+async def get_contact_stats(owner_id: int, sender_id: Optional[int], day_start_iso: str) -> Dict[str, int]:
+    """Counts of messages received from one contact since day_start_iso, by content type."""
+    if not sender_id:
+        return {}
+    sb = get_supabase()
+    for with_date in (True, False):
+        try:
+            q = (
+                sb.table("messages")
+                .select("content_type")
+                .eq("owner_id", owner_id)
+                .eq("sender_id", sender_id)
+            )
+            if with_date:
+                q = q.gte("created_at", day_start_iso)
+            res = q.execute()
+            data = getattr(res, "data", None) or []
+            counts: Dict[str, int] = {}
+            for row in data:
+                ctype = row.get("content_type") or "text"
+                counts[ctype] = counts.get(ctype, 0) + 1
+            return counts
+        except Exception as e:
+            # First attempt can fail if the created_at column was not added yet.
+            if not with_date:
+                log.warning(f"get_contact_stats error: {e}")
+    return {}
 
 
 # ---------------------------------------------------------------------------
