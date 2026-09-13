@@ -57,7 +57,7 @@ Run `/settings` in DM to configure:
 
 **👤 Message Header** Toggle First Name, Last Name, @username, and User ID.
 **🧵 DM Topics**: Enable/disable separate forum threads for each contact.
-**📥 Media Saving Mode**: Save on trigger (!, +, save) or on any text reply (default).
+**📥 Auto-save**: content is delivered only when the contact deletes it; edited text is reported as well. Stickers are never saved.
 **🌐 Language**: Switch between English and Russian.
 
 ---
@@ -119,7 +119,7 @@ By using this script, you fully acknowledge that you are aware of the possible c
 
 **👤 Заголовок сообщения**: переключение показа имени, фамилии, @username и User ID.
 **🧵 Темы в ЛС**: включение/выключение создания отдельных веток под каждого пользователя.
-**📥 Сохранение медиа**: по триггеру (!, +, save) или на любой ваш ответ.
+**📥 Автосохранение**: контент приходит только когда собеседник его удаляет; изменения текста тоже показываются. Стикеры не сохраняются.
 **🌐 Язык**: переключение между русским и английским интерфейсом.
 
 ---

@@ -75,7 +75,6 @@ DEFAULT_SETTINGS = {
     "show_username": True,
     "show_user_id": True,
     "threaded_mode": False,
-    "save_media_mode": "all",
 }
 
 
@@ -278,9 +277,10 @@ def extract_media(msg: Message) -> tuple:
         return "document", msg.document.file_id
     if msg.animation:
         return "animation", msg.animation.file_id
-    if msg.sticker:
-        return "sticker", msg.sticker.file_id
-    return str(msg.content_type), None
+    # Stickers are intentionally not cached/saved — no file_id, and the delete
+    # handler skips content_type == "sticker".
+    content_type = msg.content_type
+    return getattr(content_type, "value", content_type), None
 
 
 async def cache_message(msg: Message, owner_id: int):

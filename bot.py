@@ -37,7 +37,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - [%(levelname)s] - 
 bot = Bot(token=config.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 
-SAVE_TRIGGERS = {"!", ".", "+", "save", "сохранить", "сейв", "/save", "s", "с"}
 BOT_USERNAME = ""
 
 # Button colors: https://core.telegram.org/bots/api#keyboardbutton
@@ -420,15 +419,12 @@ async def dispatch_media_message(
         return await send_to_owner(owner_id, chat, bot.send_document, document=media, caption=caption)
     if content_type in ("animation", ContentType.ANIMATION):
         return await send_to_owner(owner_id, chat, bot.send_animation, animation=media, caption=caption)
-    if content_type in ("sticker", ContentType.STICKER):
-        return await send_to_owner(owner_id, chat, bot.send_sticker, sticker=media)
     return None
 
 
 def get_settings_keyboard(st: Dict[str, Any]) -> InlineKeyboardMarkup:
     lang = st["language"]
     th_status = t(lang, "status_on") if st["threaded_mode"] else t(lang, "status_off")
-    save_m_text = t(lang, "btn_mode_trigger") if st["save_media_mode"] == "trigger" else t(lang, "btn_mode_all")
     return InlineKeyboardMarkup(inline_keyboard=[
         [ib(t(lang, "btn_header"), callback_data="menu_header", style=STYLE_PRIMARY, icon=E_SPY)],
         [ib(
@@ -436,7 +432,6 @@ def get_settings_keyboard(st: Dict[str, Any]) -> InlineKeyboardMarkup:
             callback_data="toggle_threaded",
             style=STYLE_SUCCESS if st["threaded_mode"] else STYLE_DANGER,
         )],
-        [ib(f"{t(lang, 'btn_save_mode')}: {save_m_text}", callback_data="menu_save_mode", style=STYLE_PRIMARY, icon=E_SAVE)],
         [ib(t(lang, "btn_lang"), callback_data="menu_lang", style=STYLE_PRIMARY, icon=E_LANG)],
     ])
 
@@ -459,24 +454,6 @@ def get_header_keyboard(st: Dict[str, Any]) -> InlineKeyboardMarkup:
         [styled(t(lang, "btn_show_lname"), st["show_last_name"], "toggle_hdr_last_name")],
         [styled(t(lang, "btn_show_uname"), st["show_username"], "toggle_hdr_username")],
         [styled(t(lang, "btn_show_id"), st["show_user_id"], "toggle_hdr_user_id")],
-        [ib(t(lang, "btn_back"), callback_data="menu_main", style=STYLE_PRIMARY)],
-    ])
-
-
-def get_save_mode_keyboard(st: Dict[str, Any]) -> InlineKeyboardMarkup:
-    lang = st["language"]
-    cur = st["save_media_mode"]
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [ib(
-            t(lang, "btn_mode_trigger"),
-            callback_data="set_smode_trigger",
-            style=STYLE_SUCCESS if cur == "trigger" else STYLE_PRIMARY,
-        )],
-        [ib(
-            t(lang, "btn_mode_all"),
-            callback_data="set_smode_all",
-            style=STYLE_SUCCESS if cur == "all" else STYLE_PRIMARY,
-        )],
         [ib(t(lang, "btn_back"), callback_data="menu_main", style=STYLE_PRIMARY)],
     ])
 
@@ -811,7 +788,6 @@ HOW_TEXTS = {lb["how"] for lb in _LABELS} | {"How does the bot work?", "Bot qand
 STATS_TEXTS = {lb["stats"] for lb in _LABELS} | {"Statistics", "Statistika", "Статистика"}
 SETTINGS_TEXTS = {"Sozlamalar", "Settings", "Настройки"}
 LANG_TEXTS = {"Til", "Language", "Язык"}
-SAVE_MODE_TEXTS = {"Saqlash rejimi", "Save Mode", "Режим сохр."}
 
 
 @dp.message(F.text.in_(CONNECT_TEXTS))
@@ -960,14 +936,6 @@ async def btn_lang(msg: Message):
     await send_with_markup_fallback(msg.answer, text="🌐", reply_markup=get_lang_keyboard())
 
 
-@dp.message(F.text.in_(SAVE_MODE_TEXTS))
-async def btn_save_mode(msg: Message):
-    st = await db.get_user_settings(msg.from_user.id)
-    await send_with_markup_fallback(
-        msg.answer, text=t(st["language"], "save_mode_title"), reply_markup=get_save_mode_keyboard(st),
-    )
-
-
 @dp.callback_query(F.data == "how_it_works")
 async def cb_how_it_works(call: CallbackQuery):
     st = await db.get_user_settings(call.from_user.id)
@@ -1001,17 +969,6 @@ async def cb_menus(call: CallbackQuery):
         await call.message.edit_text(t(lang, "hdr_settings_title"), reply_markup=get_header_keyboard(st))
     elif menu == "lang":
         await call.message.edit_text(t(lang, "lang_settings_title"), reply_markup=get_lang_keyboard())
-    elif menu == "save":
-        await call.message.edit_text(t(lang, "save_mode_title"), reply_markup=get_save_mode_keyboard(st))
-    await call.answer()
-
-
-@dp.callback_query(F.data.startswith("set_smode_"))
-async def cb_set_save_mode(call: CallbackQuery):
-    mode = call.data.replace("set_smode_", "")
-    await db.update_user_setting(call.from_user.id, "save_media_mode", mode)
-    st = await db.get_user_settings(call.from_user.id)
-    await call.message.edit_text(t(st["language"], "save_mode_title"), reply_markup=get_save_mode_keyboard(st))
     await call.answer()
 
 
@@ -1331,7 +1288,8 @@ async def cb_req_ok(call: CallbackQuery):
     _ACCESS_REQ_COOLDOWN.pop(uid, None)
     await call.message.edit_text(t("uz", "req_approved").format(uid=uid))
     try:
-        await bot.send_message(uid, t("uz", "req_user_ok"))
+        user_lang = (await db.get_user_settings(uid))["language"]
+        await bot.send_message(uid, t(user_lang, "req_user_ok"))
     except Exception:
         pass
     await call.answer()
@@ -1585,12 +1543,15 @@ async def _deliver_protected_media(
 
 
 async def persist_business_media(owner_id: int, msg: Message) -> bool:
-    """Download media immediately so view-once / deletes can still be recovered.
+    """Download media so deletes/edits can still be recovered later.
 
-    The owner's feed must stay clean: ONLY one-time (view-once) media is sent
-    right away. Regular photos/videos stay in the cache and are delivered only
-    if the contact deletes or edits the message. Returns True when the media
-    was already pushed to the owner."""
+    Nothing is pushed to the owner's feed on arrival: the cached file is
+    delivered only when the contact deletes or edits the message. The one
+    exception is one-time (view-once) media from the other side, which
+    Telegram destroys after viewing, so it is grabbed while still available.
+    Messages the owner sent themselves are never echoed back, and stickers
+    are never saved at all. Returns True when the media was already pushed
+    to the owner."""
     content_type, file_id = db.extract_media(msg)
     if not file_id:
         return False
@@ -1605,7 +1566,6 @@ async def persist_business_media(owner_id: int, msg: Message) -> bool:
         or msg.audio
         or msg.document
         or msg.animation
-        or msg.sticker
         or file_id
     )
     try:
@@ -1614,7 +1574,8 @@ async def persist_business_media(owner_id: int, msg: Message) -> bool:
         await db.set_message_local_path(owner_id, msg.chat.id, msg.message_id, local_path)
     except Exception as e:
         logging.warning(f"media download failed owner={owner_id}: {e}")
-    if isolation.is_view_once_media(msg):
+    is_self = bool(msg.from_user and msg.from_user.id == owner_id)
+    if isolation.is_view_once_media(msg) and not is_self:
         await _deliver_protected_media(owner_id, msg, file_id, content_type, local_path=local_path)
         return True
     return False
@@ -1632,51 +1593,9 @@ async def on_business_message(msg: Message):
     await db.cache_message(msg, owner_id)
     _, file_id = db.extract_media(msg)
     if file_id:
+        # Download only — the file is delivered when (and ONLY when) the
+        # contact deletes or edits the message. Nothing is pushed on arrival.
         asyncio.create_task(persist_business_media(owner_id, msg))
-
-    if not msg.reply_to_message:
-        return
-    replied = msg.reply_to_message
-    if not (msg.from_user and msg.from_user.id == owner_id):
-        return
-
-    st = await db.get_user_settings(owner_id)
-    user_text = (msg.text or "").strip().lower()
-    if st["save_media_mode"] == "trigger" and user_text not in SAVE_TRIGGERS:
-        return
-
-    # View-once media is already delivered the moment it arrives — replying
-    # again would just duplicate the item in the owner's saved feed.
-    if isolation.is_view_once_media(replied):
-        return
-
-    _, rfile = db.extract_media(replied)
-    if not rfile:
-        return
-    lang = st["language"]
-    author_data = {
-        "sender_first_name": replied.from_user.first_name if replied.from_user else "",
-        "sender_last_name": replied.from_user.last_name if replied.from_user else "",
-        "sender_username": replied.from_user.username if replied.from_user else "",
-        "sender_id": replied.from_user.id if replied.from_user else 0,
-    }
-    caption = build_event_card(
-        lang,
-        t(lang, "saved_media_title"),
-        author_data,
-        st,
-        lines=[(IC_CAP, t(lang, "card_caption"), replied.caption)] if replied.caption else [],
-        chat=msg.chat,
-        when=replied.date,
-    )
-    try:
-        sent = await dispatch_media_message(
-            owner_id, msg.chat, replied.content_type, rfile, caption
-        )
-        if sent and replied.video_note:
-            await sent.reply(caption)
-    except Exception as e:
-        logging.error(f"Error saving media reply: {e}")
 
 
 @dp.edited_business_message()
@@ -1752,6 +1671,9 @@ async def on_business_messages_deleted(event: BusinessMessagesDeleted):
         content_type = cached["content_type"]
         file_id = cached["file_id"]
         text_content = cached["text_content"]
+        # Stickers are never saved or reported.
+        if content_type == "sticker":
+            return
         try:
             has_media = bool(file_id or cached.get("local_path"))
             if content_type == "text" or not has_media:

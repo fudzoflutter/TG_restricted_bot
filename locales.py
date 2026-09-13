@@ -54,6 +54,7 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "denied_ok":        "✅ Пользователь <code>{uid}</code> удалён.",
         "need_uid":         "Использование: <code>/allow 123456789</code>",
         "allowed_list":    "👥 <b>Разрешённые:</b>\n{list}",
+        "req_user_ok":     "✅ <b>Администратор подтвердил вам доступ!</b>\nНажмите /start, чтобы запустить бота.",
         "stats_choose":    "📊 <b>Статистика</b>\n\nНажмите кнопку ниже и выберите контакт — увидите, сколько сообщений он прислал вам сегодня 👇",
         "stats_pick":      "📲 Выбрать контакт",
         "btn_back_menu":   "⬅️ Меню",
@@ -130,6 +131,7 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "denied_ok":        "✅ User <code>{uid}</code> removed.",
         "need_uid":         "Usage: <code>/allow 123456789</code>",
         "allowed_list":    "👥 <b>Allowed:</b>\n{list}",
+        "req_user_ok":     "✅ <b>The admin has confirmed your access!</b>\nPress /start to launch the bot.",
         "stats_choose":    "📊 <b>Statistics</b>\n\nTap the button below and pick a contact to see how many messages they sent you today 👇",
         "stats_pick":      "📲 Choose a contact",
         "btn_back_menu":   "⬅️ Menu",
@@ -272,7 +274,7 @@ LOCALES: Dict[str, Dict[str, str]] = {
         "req_ban":         "🚫 Ban",
         "req_approved":    "✅ <code>{uid}</code> ruxsat berildi.",
         "req_banned":      "🚫 <code>{uid}</code> banlandi.",
-        "req_user_ok":     "✅ Adminga ruxsat berdingiz! Botni ishga tushirish uchun /start bosing.",
+        "req_user_ok":     "✅ <b>Admin sizga ruxsat berdi!</b>\nBotni ishga tushirish uchun /start bosing.",
         "btn_premium":     "💎 Premium",
         "premium_required": (
             "💎 <b>Premium talab qilinadi!</b>\n\n"
